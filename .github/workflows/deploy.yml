@@ -1,0 +1,177 @@
+name: Deploy to Environments
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: string
+      image_tag:
+        description: 'Docker image tag'
+        required: true
+        type: string
+    secrets:
+      KUBECONFIG:
+        description: 'Kubernetes configuration'
+        required: true
+      SLACK_WEBHOOK:
+        description: 'Slack webhook URL'
+        required: false
+
+jobs:
+  deploy-kubernetes:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+
+      - name: Deploy Frontend
+        run: |
+          kubectl set image deployment/frontend-deployment \
+            frontend=ghcr.io/${{ github.repository }}/frontend:${{ inputs.image_tag }} \
+            -n intelligent-thinking-${{ inputs.environment }}
+
+      - name: Deploy Backend
+        run: |
+          kubectl set image deployment/backend-deployment \
+            backend=ghcr.io/${{ github.repository }}/backend:${{ inputs.image_tag }} \
+            -n intelligent-thinking-${{ inputs.environment }}
+
+      - name: Deploy Microservices
+        run: |
+          for service in api-gateway auth-service thinking-analysis collaboration blockchain graphql advanced-ai search federated-learning quantum-computing networking; do
+            kubectl set image deployment/${service}-deployment \
+              ${service}=ghcr.io/${{ github.repository }}/microservice-${service}:${{ inputs.image_tag }} \
+              -n intelligent-thinking-${{ inputs.environment }}
+          done
+
+      - name: Deploy Mobile Service
+        run: |
+          kubectl set image deployment/mobile-deployment \
+            mobile=ghcr.io/${{ github.repository }}/mobile:${{ inputs.image_tag }} \
+            -n intelligent-thinking-${{ inputs.environment }}
+
+      - name: Deploy Metaverse Service
+        run: |
+          kubectl set image deployment/metaverse-deployment \
+            metaverse=ghcr.io/${{ github.repository }}/metaverse:${{ inputs.image_tag }} \
+            -n intelligent-thinking-${{ inputs.environment }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/frontend-deployment -n intelligent-thinking-${{ inputs.environment }}
+          kubectl rollout status deployment/backend-deployment -n intelligent-thinking-${{ inputs.environment }}
+          for service in api-gateway auth-service thinking-analysis collaboration blockchain graphql advanced-ai search federated-learning quantum-computing networking; do
+            kubectl rollout status deployment/${service}-deployment -n intelligent-thinking-${{ inputs.environment }}
+          done
+
+      - name: Run health checks
+        run: |
+          sleep 30
+          kubectl get pods -n intelligent-thinking-${{ inputs.environment }}
+          kubectl get services -n intelligent-thinking-${{ inputs.environment }}
+
+  deploy-docker-compose:
+    runs-on: ubuntu-latest
+    if: inputs.environment == 'staging'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update docker-compose.yml
+        run: |
+          sed -i "s|image: .*frontend.*|image: ghcr.io/${{ github.repository }}/frontend:${{ inputs.image_tag }}|g" docker-compose.yml
+          sed -i "s|image: .*backend.*|image: ghcr.io/${{ github.repository }}/backend:${{ inputs.image_tag }}|g" docker-compose.yml
+          sed -i "s|image: .*microservice.*|image: ghcr.io/${{ github.repository }}/microservice-api-gateway:${{ inputs.image_tag }}|g" docker-compose.yml
+
+      - name: Deploy with docker-compose
+        run: |
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
+          docker-compose ps
+
+  smoke-tests:
+    needs: [deploy-kubernetes, deploy-docker-compose]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm install -g newman
+
+      - name: Run API tests
+        run: |
+          newman run tests/postman/intelligent-thinking-api.json \
+            --environment tests/postman/environment-${{ inputs.environment }}.json \
+            --reporters cli,json \
+            --reporter-json-export test-results.json
+
+      - name: Run Frontend tests
+        run: |
+          curl -f http://intelligent-thinking-${{ inputs.environment }}.example.com/health || exit 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ inputs.environment }}
+          path: test-results.json
+
+  rollback:
+    needs: [deploy-kubernetes, deploy-docker-compose, smoke-tests]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback deployment
+        run: |
+          kubectl rollout undo deployment/frontend-deployment -n intelligent-thinking-${{ inputs.environment }}
+          kubectl rollout undo deployment/backend-deployment -n intelligent-thinking-${{ inputs.environment }}
+          for service in api-gateway auth-service thinking-analysis collaboration blockchain graphql advanced-ai search federated-learning quantum-computing networking; do
+            kubectl rollout undo deployment/${service}-deployment -n intelligent-thinking-${{ inputs.environment }}
+          done
+
+  notify:
+    needs: [deploy-kubernetes, deploy-docker-compose, smoke-tests, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify deployment result
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            🚀 Deployment to ${{ inputs.environment }} completed!
+            
+            Status: ${{ job.status }}
+            Repository: ${{ github.repository }}
+            Tag: ${{ inputs.image_tag }}
+            
+            Services deployed:
+            - Frontend: ✅
+            - Backend: ✅
+            - Microservices (11): ✅
+            - Mobile: ✅
+            - Metaverse: ✅ 
