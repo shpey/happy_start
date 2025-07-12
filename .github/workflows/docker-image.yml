@@ -20,9 +20,12 @@ jobs:
       microservices: ${{ steps.changes.outputs.microservices }}
       mobile: ${{ steps.changes.outputs.mobile }}
       metaverse: ${{ steps.changes.outputs.metaverse }}
+      any: ${{ steps.changes.outputs.any }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Detect changes
         uses: dorny/paths-filter@v2
@@ -40,11 +43,16 @@ jobs:
               - 'mobile/**'
             metaverse:
               - 'metaverse/**'
+            any:
+              - '**'
 
   build-frontend:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,7 +84,7 @@ jobs:
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -85,8 +93,11 @@ jobs:
 
   build-backend:
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -118,7 +129,7 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -127,8 +138,11 @@ jobs:
 
   build-microservices:
     needs: changes
-    if: needs.changes.outputs.microservices == 'true'
+    if: ${{ needs.changes.outputs.microservices == 'true' || needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         service: [
@@ -171,7 +185,7 @@ jobs:
         with:
           context: ./backend/microservices/${{ matrix.service }}
           file: ./backend/microservices/${{ matrix.service }}/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -180,8 +194,11 @@ jobs:
 
   build-mobile:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -213,7 +230,7 @@ jobs:
         with:
           context: ./mobile
           file: ./mobile/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -222,8 +239,11 @@ jobs:
 
   build-metaverse:
     needs: changes
-    if: needs.changes.outputs.metaverse == 'true'
+    if: ${{ needs.changes.outputs.metaverse == 'true' || needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -255,7 +275,7 @@ jobs:
         with:
           context: ./metaverse
           file: ./metaverse/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
