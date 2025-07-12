@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { get, post } from '../services/api';
+import apiService from '../services/api';
 
 interface User {
   id: number;
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // 验证token是否仍然有效
           try {
-            const response = await get('/users/me');
+            const response = await apiService.get('/users/me');
             if (response.success !== false) {
               setUser(response);
               localStorage.setItem('user_info', JSON.stringify(response));
@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 登录
   const login = async (username: string, password: string) => {
     try {
-      const response = await post('/users/login', { username, password });
+      const response = await apiService.post('/users/login', { username, password });
       
       if (response.success !== false) {
         const { access_token, refresh_token, user: userData } = response;
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 注册
   const register = async (userData: RegisterData) => {
     try {
-      const response = await post('/users/register', userData);
+      const response = await apiService.post('/users/register', userData);
       
       if (response.success !== false) {
         const { access_token, refresh_token, user: newUser } = response;
@@ -151,7 +151,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 更新用户信息
   const updateUser = async (userData: Partial<User>) => {
     try {
-      const response = await post('/users/me', userData);
+      const response = await apiService.post('/users/me', userData);
       
       if (response.success !== false) {
         setUser(response);
@@ -173,7 +173,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('No refresh token available');
       }
 
-      const response = await post('/users/refresh', { refresh_token: refreshTokenValue });
+      const response = await apiService.post('/users/refresh', { refresh_token: refreshTokenValue });
       
       if (response.success !== false) {
         const { access_token } = response;
@@ -199,5 +199,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshToken,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }; 

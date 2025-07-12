@@ -12,12 +12,11 @@ import {
   InputAdornment,
   IconButton,
   Divider,
-  Card,
   CardContent,
-  Grid,
   Stack,
   Fade,
-  Slide
+  Slide,
+  Grid
 } from '@mui/material';
 import {
   Visibility,
@@ -32,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { post } from '../services/api';
+import apiService from '../services/api';
 
 interface LoginFormData {
   username: string;
@@ -68,7 +67,7 @@ const LoginPage: React.FC = () => {
       setSuccess(null);
 
       try {
-        const response = await post('/users/login', values);
+        const response = await apiService.post('/users/login', values);
         
         if (response.success !== false) {
           // 存储令牌和用户信息
@@ -231,10 +230,24 @@ const LoginPage: React.FC = () => {
                         }}
                       />
 
+                      {/* 忘记密码链接 */}
+                      <Box textAlign="right">
+                        <Link 
+                          to="/forgot-password" 
+                          style={{ 
+                            color: '#667eea', 
+                            textDecoration: 'none',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          忘记密码？
+                        </Link>
+                      </Box>
+
                       {/* 登录按钮 */}
                       <Button
-                        fullWidth
                         type="submit"
+                        fullWidth
                         variant="contained"
                         size="large"
                         disabled={isLoading}
@@ -254,7 +267,7 @@ const LoginPage: React.FC = () => {
                       {/* 分隔线 */}
                       <Divider sx={{ my: 2 }}>
                         <Typography variant="body2" color="text.secondary">
-                          或
+                          或使用以下方式登录
                         </Typography>
                       </Divider>
 
@@ -294,10 +307,10 @@ const LoginPage: React.FC = () => {
                       <Box textAlign="center">
                         <Typography variant="body2" color="text.secondary">
                           还没有账户？{' '}
-                          <Link
-                            to="/register"
-                            style={{
-                              color: '#667eea',
+                          <Link 
+                            to="/register" 
+                            style={{ 
+                              color: '#667eea', 
                               textDecoration: 'none',
                               fontWeight: 'bold'
                             }}
@@ -305,20 +318,6 @@ const LoginPage: React.FC = () => {
                             立即注册
                           </Link>
                         </Typography>
-                      </Box>
-
-                      {/* 忘记密码 */}
-                      <Box textAlign="center">
-                        <Link
-                          to="/forgot-password"
-                          style={{
-                            color: '#667eea',
-                            textDecoration: 'none',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          忘记密码？
-                        </Link>
                       </Box>
                     </Stack>
                   </form>
@@ -328,7 +327,7 @@ const LoginPage: React.FC = () => {
                 <Box
                   sx={{
                     bgcolor: 'grey.50',
-                    p: 3,
+                    p: 2,
                     textAlign: 'center',
                     borderTop: '1px solid',
                     borderColor: 'divider'

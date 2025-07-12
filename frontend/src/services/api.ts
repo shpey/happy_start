@@ -5,7 +5,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // API 基础配置
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiService {
   private api: AxiosInstance;
@@ -198,16 +198,26 @@ class ApiService {
   }
 
   // 批量请求
-  async batch<T = any>(requests: Array<() => Promise<any>>): Promise<T[]> {
+  async batchRequest<T = any>(requests: Array<{ url: string; method: string; data?: any }>): Promise<T[]> {
     try {
-      const results = await Promise.allSettled(requests.map(request => request()));
-      return results.map(result => {
-        if (result.status === 'fulfilled') {
-          return result.value;
-        } else {
-          throw result.reason;
+      const promises = requests.map(req => {
+        switch (req.method.toLowerCase()) {
+          case 'get':
+            return this.get(req.url);
+          case 'post':
+            return this.post(req.url, req.data);
+          case 'put':
+            return this.put(req.url, req.data);
+          case 'patch':
+            return this.patch(req.url, req.data);
+          case 'delete':
+            return this.delete(req.url);
+          default:
+            throw new Error(`Unsupported method: ${req.method}`);
         }
       });
+
+      return await Promise.all(promises);
     } catch (error) {
       this.handleError(error);
       throw error;
@@ -216,65 +226,54 @@ class ApiService {
 
   // 错误处理
   private handleError(error: any) {
-    if (axios.isAxiosError(error)) {
-      const { response, request, message } = error;
-
-      if (response) {
-        // 服务器响应错误
-        console.error('API Error Response:', {
-          status: response.status,
-          data: response.data,
-          headers: response.headers
-        });
-      } else if (request) {
-        // 请求发送失败
-        console.error('API Request Error:', request);
-      } else {
-        // 其他错误
-        console.error('API Error:', message);
-      }
+    if (error.response) {
+      // 服务器返回错误状态码
+      console.error('API Error:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url
+      });
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      console.error('Network Error:', error.message);
     } else {
-      console.error('Unexpected Error:', error);
+      // 其他错误
+      console.error('Error:', error.message);
     }
   }
 
-  // 设置默认header
+  // 设置默认请求头
   setDefaultHeader(key: string, value: string) {
     this.api.defaults.headers.common[key] = value;
   }
 
-  // 移除默认header
+  // 移除默认请求头
   removeDefaultHeader(key: string) {
     delete this.api.defaults.headers.common[key];
   }
 
-  // 取消请求
+  // 创建取消令牌
   createCancelToken() {
     return axios.CancelToken.source();
   }
 
-  // 检查请求是否被取消
+  // 检查是否是取消请求的错误
   isCancel(error: any) {
     return axios.isCancel(error);
   }
 
-  // 获取API实例
+  // 获取axios实例
   getInstance() {
     return this.api;
   }
 }
 
-// 创建API服务实例
-const apiService = new ApiService();
+// 导出单例实例
+export const apiService = new ApiService();
+export default apiService;
 
-// 导出便捷方法
-export const get = apiService.get.bind(apiService);
-export const post = apiService.post.bind(apiService);
-export const put = apiService.put.bind(apiService);
-export const patch = apiService.patch.bind(apiService);
-export const del = apiService.delete.bind(apiService);
-export const uploadFile = apiService.uploadFile.bind(apiService);
-export const downloadFile = apiService.downloadFile.bind(apiService);
-export const batch = apiService.batch.bind(apiService);
-
-export default apiService; 
+// 导出类型
+export type {
+  AxiosRequestConfig,
+  AxiosResponse
+}; 

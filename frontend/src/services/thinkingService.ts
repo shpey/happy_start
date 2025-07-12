@@ -2,7 +2,7 @@
  * 思维分析服务
  */
 
-import { get, post, put, del } from './api';
+import apiService from './api';
 
 export interface ThinkingAnalysisRequest {
   text: string;
@@ -94,7 +94,7 @@ class ThinkingService {
    */
   async analyzeThinking(request: ThinkingAnalysisRequest): Promise<ThinkingAnalysisResponse> {
     try {
-      const response = await post('/thinking/analyze', {
+      const response = await apiService.post('/thinking/analyze', {
         text: request.text,
         analysis_type: request.analysis_type || 'comprehensive',
         save_result: request.save_result !== false,
@@ -120,7 +120,7 @@ class ThinkingService {
       }
       formData.append('save_result', 'true');
 
-      const response = await post('/thinking/analyze-image', formData, {
+      const response = await apiService.post('/thinking/analyze-image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -146,7 +146,7 @@ class ThinkingService {
         formData.append('user_id', request.user_id);
       }
 
-      const response = await post('/thinking/generate-ideas', formData, {
+      const response = await apiService.post('/thinking/generate-ideas', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -173,7 +173,7 @@ class ThinkingService {
       if (options?.offset) params.append('offset', String(options.offset));
       if (options?.analysis_type) params.append('analysis_type', options.analysis_type);
 
-      const response = await get(`/thinking/history/${userId}?${params.toString()}`);
+      const response = await apiService.get(`/thinking/history/${userId}?${params.toString()}`);
       return response.history || [];
     } catch (error) {
       console.error('获取分析历史失败:', error);
@@ -186,7 +186,7 @@ class ThinkingService {
    */
   async getThinkingStatistics(userId: string): Promise<ThinkingStatistics> {
     try {
-      const response = await get(`/thinking/statistics/${userId}`);
+      const response = await apiService.get(`/thinking/statistics/${userId}`);
       return response.statistics;
     } catch (error) {
       console.error('获取思维统计失败:', error);
@@ -199,7 +199,7 @@ class ThinkingService {
    */
   async toggleFavorite(analysisId: string, isFavorited: boolean): Promise<void> {
     try {
-      await put(`/thinking/analysis/${analysisId}/favorite`, {
+      await apiService.put(`/thinking/analysis/${analysisId}/favorite`, {
         is_favorited: isFavorited
       });
     } catch (error) {
@@ -213,7 +213,7 @@ class ThinkingService {
    */
   async deleteAnalysis(analysisId: string): Promise<void> {
     try {
-      await del(`/thinking/analysis/${analysisId}`);
+      await apiService.delete(`/thinking/analysis/${analysisId}`);
     } catch (error) {
       console.error('删除分析失败:', error);
       throw error;
@@ -221,12 +221,12 @@ class ThinkingService {
   }
 
   /**
-   * 获取分析结果详情
+   * 获取分析详情
    */
   async getAnalysisDetail(analysisId: string): Promise<any> {
     try {
-      const response = await get(`/thinking/analysis/${analysisId}`);
-      return response;
+      const response = await apiService.get(`/thinking/analysis/${analysisId}`);
+      return response.analysis;
     } catch (error) {
       console.error('获取分析详情失败:', error);
       throw error;
@@ -242,7 +242,7 @@ class ThinkingService {
     tags?: string[];
   }): Promise<void> {
     try {
-      await put(`/thinking/analysis/${analysisId}`, updates);
+      await apiService.put(`/thinking/analysis/${analysisId}`, updates);
     } catch (error) {
       console.error('更新分析失败:', error);
       throw error;
@@ -261,14 +261,14 @@ class ThinkingService {
   }): Promise<ThinkingAnalysisHistory[]> {
     try {
       const params = new URLSearchParams();
-      params.append('query', query);
+      params.append('q', query);
       if (options?.user_id) params.append('user_id', options.user_id);
       if (options?.analysis_type) params.append('analysis_type', options.analysis_type);
       if (options?.date_from) params.append('date_from', options.date_from);
       if (options?.date_to) params.append('date_to', options.date_to);
       if (options?.limit) params.append('limit', String(options.limit));
 
-      const response = await get(`/thinking/search?${params.toString()}`);
+      const response = await apiService.get(`/thinking/search?${params.toString()}`);
       return response.results || [];
     } catch (error) {
       console.error('搜索分析失败:', error);
@@ -281,11 +281,11 @@ class ThinkingService {
    */
   async getRecommendedExercises(userId: string): Promise<any[]> {
     try {
-      const response = await get(`/thinking/exercises/recommended/${userId}`);
+      const response = await apiService.get(`/thinking/exercises/recommended/${userId}`);
       return response.exercises || [];
     } catch (error) {
       console.error('获取推荐练习失败:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -294,11 +294,11 @@ class ThinkingService {
    */
   async compareAnalyses(analysisId1: string, analysisId2: string): Promise<any> {
     try {
-      const response = await post('/thinking/compare', {
+      const response = await apiService.post('/thinking/compare', {
         analysis_id_1: analysisId1,
         analysis_id_2: analysisId2
       });
-      return response;
+      return response.comparison;
     } catch (error) {
       console.error('比较分析失败:', error);
       throw error;
@@ -306,11 +306,11 @@ class ThinkingService {
   }
 
   /**
-   * 获取思维发展趋势
+   * 获取思维趋势
    */
   async getThinkingTrends(userId: string, timeRange: 'week' | 'month' | 'year' = 'month'): Promise<any> {
     try {
-      const response = await get(`/thinking/trends/${userId}?time_range=${timeRange}`);
+      const response = await apiService.get(`/thinking/trends/${userId}?time_range=${timeRange}`);
       return response.trends;
     } catch (error) {
       console.error('获取思维趋势失败:', error);
@@ -319,5 +319,6 @@ class ThinkingService {
   }
 }
 
+// 导出单例
 export const thinkingService = new ThinkingService();
 export default thinkingService; 

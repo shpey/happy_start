@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { post } from '../services/api';
+import apiService from '../services/api';
 
 interface RegisterFormData {
   username: string;
@@ -150,7 +150,7 @@ const RegisterPage: React.FC = () => {
 
       try {
         const { confirmPassword, ...registerData } = values;
-        const response = await post('/users/register', registerData);
+        const response = await apiService.post('/users/register', registerData);
         
         if (response.success !== false) {
           // 存储令牌和用户信息
@@ -234,336 +234,283 @@ const RegisterPage: React.FC = () => {
               返回首页
             </Button>
 
-            {/* 注册卡片 */}
-            <Slide in timeout={1000} direction="up">
-              <Paper
-                elevation={8}
-                sx={{
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  bgcolor: 'background.paper'
-                }}
-              >
-                {/* 头部 */}
-                <Box
-                  sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    p: 4,
-                    textAlign: 'center'
-                  }}
-                >
-                  <Psychology sx={{ fontSize: 48, mb: 2 }} />
-                  <Typography variant="h4" fontWeight="bold" gutterBottom>
-                    加入我们
-                  </Typography>
-                  <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                    创建您的智能思维分析账户，开启AI思维之旅
-                  </Typography>
-                </Box>
+            <Paper 
+              elevation={12} 
+              sx={{ 
+                p: 4, 
+                borderRadius: 3,
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)'
+              }}
+            >
+              <Box textAlign="center" mb={3}>
+                <Psychology sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+                  加入智能思维分析平台
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  开启您的智能思维之旅，探索无限可能
+                </Typography>
+              </Box>
 
-                {/* 表单区域 */}
-                <CardContent sx={{ p: 4 }}>
-                  <form onSubmit={formik.handleSubmit}>
-                    <Stack spacing={3}>
-                      {/* 错误提示 */}
-                      {error && (
-                        <Alert severity="error" sx={{ borderRadius: 2 }}>
-                          {error}
-                        </Alert>
-                      )}
+              {/* 错误和成功提示 */}
+              {error && (
+                <Slide direction="down" in={!!error} timeout={500}>
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                  </Alert>
+                </Slide>
+              )}
+              
+              {success && (
+                <Slide direction="down" in={!!success} timeout={500}>
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    {success}
+                  </Alert>
+                </Slide>
+              )}
 
-                      {/* 成功提示 */}
-                      {success && (
-                        <Alert severity="success" sx={{ borderRadius: 2 }}>
-                          {success}
-                        </Alert>
-                      )}
+              <Box component="form" onSubmit={formik.handleSubmit} noValidate>
+                <Grid container spacing={2}>
+                  {/* 用户名 */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      id="username"
+                      name="username"
+                      label="用户名"
+                      value={formik.values.username}
+                      onChange={formik.handleChange}
+                      error={formik.touched.username && Boolean(formik.errors.username)}
+                      helperText={formik.touched.username && formik.errors.username}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <AccountCircle />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
 
-                      {/* 用户名和姓名 */}
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            name="username"
-                            label="用户名"
-                            value={formik.values.username}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.username && Boolean(formik.errors.username)}
-                            helperText={formik.touched.username && formik.errors.username}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Person color="action" />
-                                </InputAdornment>
-                              ),
-                            }}
-                            sx={{
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2,
-                              },
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            name="full_name"
-                            label="姓名"
-                            value={formik.values.full_name}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.full_name && Boolean(formik.errors.full_name)}
-                            helperText={formik.touched.full_name && formik.errors.full_name}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <AccountCircle color="action" />
-                                </InputAdornment>
-                              ),
-                            }}
-                            sx={{
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2,
-                              },
-                            }}
-                          />
-                        </Grid>
-                      </Grid>
+                  {/* 姓名 */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      id="full_name"
+                      name="full_name"
+                      label="姓名"
+                      value={formik.values.full_name}
+                      onChange={formik.handleChange}
+                      error={formik.touched.full_name && Boolean(formik.errors.full_name)}
+                      helperText={formik.touched.full_name && formik.errors.full_name}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Person />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
 
-                      {/* 邮箱输入 */}
-                      <TextField
-                        fullWidth
-                        name="email"
-                        label="邮箱"
-                        type="email"
-                        value={formik.values.email}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.email && Boolean(formik.errors.email)}
-                        helperText={formik.touched.email && formik.errors.email}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Email color="action" />
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
+                  {/* 邮箱 */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="email"
+                      name="email"
+                      label="邮箱"
+                      type="email"
+                      value={formik.values.email}
+                      onChange={formik.handleChange}
+                      error={formik.touched.email && Boolean(formik.errors.email)}
+                      helperText={formik.touched.email && formik.errors.email}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Email />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
 
-                      {/* 密码输入 */}
-                      <TextField
-                        fullWidth
-                        name="password"
-                        label="密码"
-                        type={showPassword ? 'text' : 'password'}
-                        value={formik.values.password}
-                        onChange={handlePasswordChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.password && Boolean(formik.errors.password)}
-                        helperText={formik.touched.password && formik.errors.password}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock color="action" />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={togglePasswordVisibility}
-                                edge="end"
-                              >
-                                {showPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-
-                      {/* 密码强度指示器 */}
-                      {formik.values.password && (
-                        <Box>
-                          <Box display="flex" alignItems="center" gap={2} mb={1}>
-                            <Typography variant="body2" color="text.secondary">
-                              密码强度:
-                            </Typography>
-                            <Chip
-                              label={passwordStrength.label}
-                              color={passwordStrength.color}
-                              size="small"
-                            />
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={(passwordStrength.score / 5) * 100}
+                  {/* 密码 */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="password"
+                      name="password"
+                      label="密码"
+                      type={showPassword ? 'text' : 'password'}
+                      value={formik.values.password}
+                      onChange={handlePasswordChange}
+                      error={formik.touched.password && Boolean(formik.errors.password)}
+                      helperText={formik.touched.password && formik.errors.password}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={togglePasswordVisibility}
+                              edge="end"
+                            >
+                              {showPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    
+                    {/* 密码强度显示 */}
+                    {formik.values.password && (
+                      <Box mt={1}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2" color="text.secondary">
+                            密码强度:
+                          </Typography>
+                          <Chip
+                            label={passwordStrength.label}
                             color={passwordStrength.color}
-                            sx={{ height: 6, borderRadius: 3 }}
+                            size="small"
                           />
-                          <Box mt={1}>
-                            <Grid container spacing={1}>
-                              <Grid item xs={12} sm={6}>
-                                {renderPasswordCheck('至少8个字符', passwordStrength.checks.length)}
-                                {renderPasswordCheck('包含大写字母', passwordStrength.checks.uppercase)}
-                                {renderPasswordCheck('包含小写字母', passwordStrength.checks.lowercase)}
-                              </Grid>
-                              <Grid item xs={12} sm={6}>
-                                {renderPasswordCheck('包含数字', passwordStrength.checks.number)}
-                                {renderPasswordCheck('包含特殊字符', passwordStrength.checks.special)}
-                              </Grid>
-                            </Grid>
-                          </Box>
                         </Box>
-                      )}
-
-                      {/* 确认密码输入 */}
-                      <TextField
-                        fullWidth
-                        name="confirmPassword"
-                        label="确认密码"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={formik.values.confirmPassword}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-                        helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Lock color="action" />
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={toggleConfirmPasswordVisibility}
-                                edge="end"
-                              >
-                                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-
-                      {/* 注册按钮 */}
-                      <Button
-                        fullWidth
-                        type="submit"
-                        variant="contained"
-                        size="large"
-                        disabled={isLoading}
-                        startIcon={isLoading ? <CircularProgress size={20} /> : <PersonAdd />}
-                        sx={{
-                          py: 1.5,
-                          borderRadius: 2,
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          '&:hover': {
-                            background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                          },
-                        }}
-                      >
-                        {isLoading ? '注册中...' : '创建账户'}
-                      </Button>
-
-                      {/* 分隔线 */}
-                      <Divider sx={{ my: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          或使用以下方式注册
-                        </Typography>
-                      </Divider>
-
-                      {/* 社交登录 */}
-                      <Grid container spacing={2}>
-                        <Grid item xs={6}>
-                          <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<GoogleIcon />}
-                            sx={{
-                              py: 1.5,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                            }}
-                          >
-                            Google
-                          </Button>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<GitHubIcon />}
-                            sx={{
-                              py: 1.5,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                            }}
-                          >
-                            GitHub
-                          </Button>
-                        </Grid>
-                      </Grid>
-
-                      {/* 登录链接 */}
-                      <Box textAlign="center">
-                        <Typography variant="body2" color="text.secondary">
-                          已有账户？{' '}
-                          <Link
-                            to="/login"
-                            style={{
-                              color: '#667eea',
-                              textDecoration: 'none',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            立即登录
-                          </Link>
-                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={(passwordStrength.score / 5) * 100}
+                          color={passwordStrength.color}
+                          sx={{ height: 6, borderRadius: 3 }}
+                        />
+                        <Box mt={1}>
+                          <Grid container spacing={1}>
+                            <Grid item xs={6}>
+                              {renderPasswordCheck('至少8个字符', passwordStrength.checks.length)}
+                              {renderPasswordCheck('包含大写字母', passwordStrength.checks.uppercase)}
+                              {renderPasswordCheck('包含小写字母', passwordStrength.checks.lowercase)}
+                            </Grid>
+                            <Grid item xs={6}>
+                              {renderPasswordCheck('包含数字', passwordStrength.checks.number)}
+                              {renderPasswordCheck('包含特殊字符', passwordStrength.checks.special)}
+                            </Grid>
+                          </Grid>
+                        </Box>
                       </Box>
-                    </Stack>
-                  </form>
-                </CardContent>
+                    )}
+                  </Grid>
 
-                {/* 底部信息 */}
-                <Box
+                  {/* 确认密码 */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      label="确认密码"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formik.values.confirmPassword}
+                      onChange={formik.handleChange}
+                      error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
+                      helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={toggleConfirmPasswordVisibility}
+                              edge="end"
+                            >
+                              {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+
+                {/* 注册按钮 */}
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={isLoading}
                   sx={{
-                    bgcolor: 'grey.50',
-                    p: 3,
-                    textAlign: 'center',
-                    borderTop: '1px solid',
-                    borderColor: 'divider'
+                    mt: 3,
+                    mb: 2,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    borderRadius: 2,
+                    background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #5a67d8 30%, #6b46c1 90%)',
+                    }
                   }}
+                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PersonAdd />}
                 >
+                  {isLoading ? '注册中...' : '创建账户'}
+                </Button>
+
+                {/* 社交登录 */}
+                <Divider sx={{ my: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    注册即表示您同意我们的
-                    <Link to="/terms" style={{ color: '#667eea', textDecoration: 'none' }}>
-                      服务条款
-                    </Link>
-                    和
-                    <Link to="/privacy" style={{ color: '#667eea', textDecoration: 'none' }}>
-                      隐私政策
+                    或者使用社交账户注册
+                  </Typography>
+                </Divider>
+
+                <Stack direction="row" spacing={2} justifyContent="center">
+                  <Button
+                    variant="outlined"
+                    startIcon={<GoogleIcon />}
+                    sx={{
+                      px: 3,
+                      py: 1,
+                      borderRadius: 2,
+                      textTransform: 'none'
+                    }}
+                  >
+                    Google
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<GitHubIcon />}
+                    sx={{
+                      px: 3,
+                      py: 1,
+                      borderRadius: 2,
+                      textTransform: 'none'
+                    }}
+                  >
+                    GitHub
+                  </Button>
+                </Stack>
+
+                {/* 登录链接 */}
+                <Box textAlign="center" mt={3}>
+                  <Typography variant="body2" color="text.secondary">
+                    已有账户？{' '}
+                    <Link 
+                      to="/login" 
+                      style={{ 
+                        color: '#667eea', 
+                        textDecoration: 'none',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      立即登录
                     </Link>
                   </Typography>
                 </Box>
-              </Paper>
-            </Slide>
+              </Box>
+            </Paper>
           </Box>
         </Fade>
       </Container>
