@@ -1,0 +1,54 @@
+{
+  "name": "intelligent-thinking-metaverse",
+  "version": "1.0.0",
+  "description": "AR/VR Metaverse service for Intelligent Thinking Platform",
+  "main": "MetaverseCore.js",
+  "scripts": {
+    "start": "node MetaverseCore.js",
+    "dev": "nodemon MetaverseCore.js",
+    "test": "jest",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "three": "^0.155.0",
+    "aframe": "^1.4.0",
+    "webxr-polyfill": "^2.0.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.5.0",
+    "joi": "^17.9.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.0",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0",
+    "eslint": "^8.47.0",
+    "prettier": "^3.0.2",
+    "@types/node": "^20.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "metaverse",
+    "webxr",
+    "aframe",
+    "three.js",
+    "vr",
+    "ar",
+    "thinking",
+    "collaboration"
+  ],
+  "author": "Intelligent Thinking Team",
+  "license": "MIT"
+} 
