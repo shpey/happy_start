@@ -1,0 +1,226 @@
+# 核心Web框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.4.2
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+starlette==0.27.0
+
+# 数据库相关
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.8
+asyncpg==0.29.0
+redis==5.0.1
+aioredis==2.0.1
+
+# 微服务架构
+consul==1.1.0
+httpx==0.25.2
+aiohttp==3.8.6
+websockets==12.0
+python-consul==1.1.0
+service-discovery==0.1.0
+
+# 区块链技术
+web3==6.11.3
+eth-account==0.9.0
+eth-keys==0.4.0
+eth-utils==2.3.0
+ipfshttpclient==0.8.0a2
+py-evm==0.7.0a4
+py-solc-x==2.0.2
+
+# GraphQL
+strawberry-graphql==0.209.8
+strawberry-graphql[fastapi]==0.209.8
+graphql-core==3.2.3
+graphql-relay==3.2.0
+
+# 高级AI模型
+openai==1.3.5
+anthropic==0.5.0
+google-generativeai==0.3.1
+transformers==4.35.2
+torch==2.1.1
+torchvision==0.16.1
+torchaudio==2.1.1
+sentence-transformers==2.2.2
+datasets==2.14.6
+tokenizers==0.15.0
+huggingface-hub==0.19.4
+accelerate==0.24.1
+
+# 多模态AI
+opencv-python==4.8.1.78
+pillow==10.1.0
+librosa==0.10.1
+soundfile==1.0.3
+moviepy==1.0.3
+scikit-image==0.22.0
+imageio==2.31.5
+
+# 计算机视觉
+clip-by-openai==1.0
+timm==0.9.10
+albumentations==1.3.1
+detectron2==0.6
+
+# 自然语言处理
+spacy==3.7.2
+nltk==3.8.1
+gensim==4.3.2
+textblob==0.17.1
+langchain==0.0.340
+llama-index==0.8.69
+
+# 量子计算
+qiskit==0.44.2
+qiskit-aer==0.12.2
+qiskit-ibm-provider==0.7.2
+qiskit-algorithms==0.2.2
+qiskit-machine-learning==0.7.1
+qiskit-optimization==0.6.0
+qiskit-finance==0.4.0
+qiskit-nature==0.7.1
+pennylane==0.32.0
+cirq==1.2.0
+pyquil==4.1.1
+
+# 向量数据库
+chromadb==0.4.18
+weaviate-client==3.25.3
+pinecone-client==2.2.4
+qdrant-client==1.6.9
+milvus==2.3.3
+faiss-cpu==1.7.4
+
+# 搜索引擎
+elasticsearch==8.10.0
+opensearch-py==2.4.1
+whoosh==2.7.4
+haystack-ai==0.0.13
+
+# 数据流处理
+kafka-python==2.0.2
+apache-beam==2.51.0
+pyspark==3.5.0
+dask==2023.10.1
+ray==2.8.0
+celery==5.3.4
+
+# 监控和日志
+prometheus-client==0.18.0
+grafana-api==1.0.3
+jaeger-client==4.8.0
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+structlog==23.2.0
+loguru==0.7.2
+
+# 容器化和部署
+docker==6.1.3
+kubernetes==28.1.0
+helm==3.13.2
+docker-compose==1.29.2
+
+# 安全和加密
+cryptography==41.0.7
+pycryptodome==3.19.0
+hashlib==20081119
+bcrypt==4.1.1
+pyjwt==2.8.0
+python-gnupg==0.5.2
+
+# 数据科学和机器学习
+numpy==1.24.4
+pandas==2.1.3
+scipy==1.11.4
+scikit-learn==1.3.2
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+bokeh==3.3.0
+altair==5.1.2
+
+# 深度学习
+tensorflow==2.14.0
+keras==2.14.0
+pytorch-lightning==2.1.1
+jax==0.4.20
+flax==0.7.5
+optax==0.1.7
+
+# 云服务
+boto3==1.34.0
+google-cloud-storage==2.10.0
+azure-storage-blob==12.19.0
+minio==7.2.0
+
+# 边缘计算
+edge-tpu==2.1.0
+coral-python==2.0.0
+tflite-runtime==2.14.0
+onnx==1.15.0
+onnxruntime==1.16.3
+
+# 联邦学习
+tensorflow-federated==0.56.0
+pysyft==0.8.8
+flower==1.6.0
+
+# 零知识证明
+zk-merkle-tree==0.1.0
+py-ecc==6.0.0
+arkworks-py==0.1.0
+
+# 语音处理
+speechrecognition==3.10.0
+pydub==0.25.1
+gtts==2.4.0
+espeak==1.48.15
+whisper==1.0.0
+
+# 其他实用工具
+pyyaml==6.0.1
+toml==0.10.2
+click==8.1.7
+typer==0.9.0
+rich==13.7.0
+tqdm==4.66.1
+requests==2.31.0
+aiofiles==23.2.1
+pathlib==1.0.1
+python-dotenv==1.0.0
+schedule==1.2.1
+apscheduler==3.10.4
+watchdog==3.0.0
+
+# 测试框架
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.25.2
+factory-boy==3.3.0
+faker==19.12.0
+
+# 开发工具
+black==23.11.0
+flake8==6.1.0
+isort==5.12.0
+mypy==1.7.1
+pre-commit==3.5.0
+bandit==1.7.5
+
+# 文档生成
+sphinx==7.2.6
+mkdocs==1.5.3
+mkdocs-material==9.4.8
+
+# 性能优化
+cython==3.0.5
+numba==0.58.1
+pypy==7.3.13 

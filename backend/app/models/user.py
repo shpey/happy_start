@@ -69,6 +69,7 @@ class User(Base):
             "is_verified": self.is_verified,
             "is_premium": self.is_premium,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "preferences": self.preferences,
             "thinking_stats": self.thinking_stats

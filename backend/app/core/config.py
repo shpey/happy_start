@@ -1,38 +1,90 @@
 """
-应用配置管理
+应用配置
 """
 
 import os
-import secrets
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-
-from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
+from typing import List, Union
+from pydantic import BaseSettings, validator
 
 
 class Settings(BaseSettings):
     """应用配置类"""
     
-    # 基础配置
-    APP_NAME: str = "智能思维与灵境融合平台"
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    # 应用基本信息
+    PROJECT_NAME: str = "智能思维与灵境融合平台"
+    VERSION: str = "1.0.0"
+    DESCRIPTION: str = "AI驱动的3D思维空间与协作平台"
     
     # 服务器配置
-    SERVER_NAME: str = "localhost"
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000
     
-    # 跨域配置
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = [
-        "http://localhost:3000",  # React开发服务器
-        "http://localhost:8000",  # FastAPI本地
+    # 环境配置
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    
+    # 安全配置
+    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # 数据库配置
+    DATABASE_URL: str = "sqlite:///./intelligent_thinking.db"
+    
+    # Redis配置
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""
+    
+    # Neo4j配置
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USERNAME: str = "neo4j"
+    NEO4J_PASSWORD: str = "password"
+    
+    # CORS配置
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000",
+        "http://127.0.0.1:3001",
     ]
     
+    # API配置
+    API_V1_STR: str = "/api/v1"
+    
+    # 文件上传配置
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    ALLOWED_EXTENSIONS: List[str] = [
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp",
+        ".pdf", ".doc", ".docx", ".txt", ".csv",
+        ".mp3", ".wav", ".mp4", ".avi", ".mov"
+    ]
+    
+    # AI模型配置
+    AI_MODEL_DIR: str = "models"
+    ENABLE_AI_MODELS: bool = True
+    
+    # 缓存配置
+    CACHE_TTL: int = 3600  # 1小时
+    
+    # 日志配置
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: str = "app.log"
+    
+    # 监控配置
+    ENABLE_METRICS: bool = True
+    
+    # 邮件配置
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    
+    # 验证CORS来源
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
@@ -41,143 +93,32 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    # 数据库配置
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres123"
-    POSTGRES_DB: str = "intelligent_thinking"
-    POSTGRES_PORT: int = 5432
+    # 获取当前时间
+    @staticmethod
+    def get_current_time() -> str:
+        return datetime.now().isoformat()
     
+    # 获取Redis连接URL
     @property
-    def DATABASE_URL(self) -> str:
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-    
-    # Redis配置
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_PASSWORD: Optional[str] = None
-    
-    @property
-    def REDIS_URL(self) -> str:
+    def redis_url(self) -> str:
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
-    # Neo4j配置
-    NEO4J_URI: str = "bolt://localhost:7687"
-    NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = "neo4j123"
+    # 获取Neo4j连接URL
+    @property
+    def neo4j_url(self) -> str:
+        return f"{self.NEO4J_URI}"
     
-    # JWT配置
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8天
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 30天
-    JWT_ALGORITHM: str = "HS256"
-    
-    # 邮箱配置
-    SMTP_TLS: bool = True
-    SMTP_PORT: Optional[int] = None
-    SMTP_HOST: Optional[str] = None
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    EMAILS_FROM_EMAIL: Optional[EmailStr] = None
-    EMAILS_FROM_NAME: Optional[str] = None
-    
-    # 文件上传配置
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    UPLOAD_FOLDER: str = "uploads"
-    ALLOWED_FILE_TYPES: List[str] = [
-        "jpg", "jpeg", "png", "gif", "bmp", "webp",  # 图片
-        "mp4", "avi", "mkv", "mov", "wmv",           # 视频
-        "mp3", "wav", "ogg", "m4a",                  # 音频
-        "pdf", "doc", "docx", "txt", "md",           # 文档
-        "json", "csv", "xlsx", "xls"                 # 数据
-    ]
-    
-    # AI模型配置
-    AI_MODELS_PATH: str = "models"
-    HUGGINGFACE_CACHE_DIR: str = "models/huggingface"
-    ENABLE_GPU: bool = False
-    MAX_BATCH_SIZE: int = 32
-    
-    # 三层思维模型配置
-    THINKING_MODELS: Dict[str, Dict[str, Any]] = {
-        "visual_thinking": {
-            "model_name": "clip-vit-base-patch32",
-            "enabled": True,
-            "description": "形象思维：视觉-语言理解"
-        },
-        "logical_thinking": {
-            "model_name": "roberta-base",
-            "enabled": True,
-            "description": "逻辑思维：推理和分析"
-        },
-        "creative_thinking": {
-            "model_name": "gpt2-medium",
-            "enabled": True,
-            "description": "创造思维：生成和创新"
-        }
-    }
-    
-    # 知识图谱配置
-    KNOWLEDGE_GRAPH: Dict[str, Any] = {
-        "max_nodes": 10000,
-        "max_relationships": 50000,
-        "similarity_threshold": 0.8,
-        "reasoning_depth": 3
-    }
-    
-    # WebSocket配置
-    WS_HEARTBEAT_INTERVAL: int = 30
-    WS_MAX_CONNECTIONS: int = 1000
-    WS_TIMEOUT: int = 60
-    
-    # 监控配置
-    ENABLE_METRICS: bool = True
-    ENABLE_TRACING: bool = True
-    LOG_LEVEL: str = "INFO"
-    
-    # 缓存配置
-    CACHE_TTL: int = 3600  # 1小时
-    CACHE_MAX_SIZE: int = 1000
-    
-    # 任务队列配置
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
-    
-    # 安全配置
-    BCRYPT_ROUNDS: int = 12
-    RATE_LIMIT_PER_MINUTE: int = 60
-    ENABLE_CORS: bool = True
-    
-    # 测试配置
-    TESTING: bool = False
-    TEST_DATABASE_URL: Optional[str] = None
-    
-    # 区块链配置（可选）
-    WEB3_PROVIDER_URL: Optional[str] = None
-    ENABLE_BLOCKCHAIN: bool = False
-    CONTRACT_ADDRESS: Optional[str] = None
-    PRIVATE_KEY: Optional[str] = None
-    
-    # 生产环境检查
-    @validator("ENVIRONMENT", pre=True)
-    def validate_environment(cls, v):
-        if v not in ["development", "staging", "production"]:
-            raise ValueError("ENVIRONMENT must be one of: development, staging, production")
-        return v
-    
-    def get_current_time(self) -> str:
-        """获取当前时间字符串"""
-        return datetime.now().isoformat()
-    
-    def is_development(self) -> bool:
-        """是否为开发环境"""
-        return self.ENVIRONMENT == "development"
-    
+    # 检查是否为生产环境
+    @property
     def is_production(self) -> bool:
-        """是否为生产环境"""
-        return self.ENVIRONMENT == "production"
+        return self.ENVIRONMENT.lower() == "production"
+    
+    # 检查是否为开发环境
+    @property
+    def is_development(self) -> bool:
+        return self.ENVIRONMENT.lower() == "development"
     
     class Config:
         env_file = ".env"
@@ -188,7 +129,26 @@ class Settings(BaseSettings):
 # 创建全局配置实例
 settings = Settings()
 
-# 确保上传目录存在
-os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(settings.AI_MODELS_PATH, exist_ok=True)
-os.makedirs(settings.HUGGINGFACE_CACHE_DIR, exist_ok=True) 
+# 如果是生产环境，进行额外的配置检查
+if settings.is_production:
+    # 检查必要的环境变量
+    required_env_vars = [
+        "SECRET_KEY",
+        "DATABASE_URL",
+        "REDIS_HOST",
+        "NEO4J_URI",
+        "NEO4J_USERNAME",
+        "NEO4J_PASSWORD"
+    ]
+    
+    missing_vars = []
+    for var in required_env_vars:
+        if not getattr(settings, var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        raise ValueError(f"生产环境缺少必要的环境变量: {', '.join(missing_vars)}")
+    
+    # 生产环境安全检查
+    if settings.SECRET_KEY == "your-secret-key-change-this-in-production":
+        raise ValueError("生产环境必须设置自定义的SECRET_KEY") 

@@ -1,27 +1,29 @@
 """
-协作相关数据模型
+协作会话数据模型
 """
 
 from datetime import datetime
-from typing import Optional, List
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, ForeignKey, Enum
+from typing import Dict, Any, Optional, List
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import enum
+from enum import Enum
 
 from ..core.database import Base
 
 
-class RoomStatus(enum.Enum):
-    """房间状态枚举"""
-    ACTIVE = "active"
-    PAUSED = "paused"
-    CLOSED = "closed"
+class SessionType(str, Enum):
+    """会话类型枚举"""
+    DISCUSSION = "discussion"
+    BRAINSTORM = "brainstorm"
+    ANALYSIS = "analysis"
+    LEARNING = "learning"
+    WORKSHOP = "workshop"
 
 
-class UserRole(enum.Enum):
+class UserRole(str, Enum):
     """用户角色枚举"""
-    CREATOR = "creator"
+    HOST = "host"
     MODERATOR = "moderator"
     PARTICIPANT = "participant"
     OBSERVER = "observer"
@@ -34,41 +36,24 @@ class CollaborationSession(Base):
     
     # 基本信息
     id = Column(Integer, primary_key=True, index=True)
-    room_id = Column(String(100), unique=True, index=True, nullable=False)
-    name = Column(String(200), nullable=False)
-    description = Column(Text)
-    
-    # 会话配置
-    max_users = Column(Integer, default=10)
-    is_public = Column(Boolean, default=False)
-    requires_approval = Column(Boolean, default=False)
-    allow_anonymous = Column(Boolean, default=False)
-    
-    # 状态信息
-    status = Column(Enum(RoomStatus), default=RoomStatus.ACTIVE)
-    current_users_count = Column(Integer, default=0)
-    
-    # 创建者信息
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    # 会话设置
-    settings = Column(JSON, default={
-        "enable_voice": True,
-        "enable_video": False,
-        "enable_screen_share": True,
-        "enable_3d_space": True,
-        "thinking_mode": "collaborative",
-        "auto_save": True
-    })
+    # 会话信息
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    session_type = Column(String(50), default=SessionType.DISCUSSION)
     
-    # 3D空间配置
-    space_config = Column(JSON, default={
-        "environment": "default",
-        "lighting": "natural",
-        "background_music": None,
-        "spatial_audio": True,
-        "max_objects": 100
-    })
+    # 会话状态
+    is_active = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)
+    is_archived = Column(Boolean, default=False)
+    
+    # 参与者设置
+    max_participants = Column(Integer, default=10)
+    current_participants = Column(Integer, default=0)
+    
+    # 会话设置
+    settings = Column(JSON, default={})
     
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -78,48 +63,57 @@ class CollaborationSession(Base):
     
     # 关系
     creator = relationship("User", back_populates="collaboration_sessions")
-    user_sessions = relationship("UserSession", back_populates="collaboration_session")
-    session_events = relationship("SessionEvent", back_populates="session")
-    shared_objects = relationship("SharedObject", back_populates="session")
+    user_sessions = relationship("UserSession", back_populates="session")
     
     def __repr__(self):
-        return f"<CollaborationSession(id={self.id}, room_id='{self.room_id}', name='{self.name}')>"
+        return f"<CollaborationSession(id={self.id}, title='{self.title}')>"
     
     def to_dict(self):
         """转换为字典"""
         return {
             "id": self.id,
-            "room_id": self.room_id,
-            "name": self.name,
-            "description": self.description,
-            "max_users": self.max_users,
-            "is_public": self.is_public,
-            "requires_approval": self.requires_approval,
-            "allow_anonymous": self.allow_anonymous,
-            "status": self.status.value if self.status else None,
-            "current_users_count": self.current_users_count,
             "creator_id": self.creator_id,
+            "title": self.title,
+            "description": self.description,
+            "session_type": self.session_type,
+            "is_active": self.is_active,
+            "is_public": self.is_public,
+            "is_archived": self.is_archived,
+            "max_participants": self.max_participants,
+            "current_participants": self.current_participants,
             "settings": self.settings,
-            "space_config": self.space_config,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "ended_at": self.ended_at.isoformat() if self.ended_at else None
         }
     
-    def to_summary(self):
-        """返回会话摘要"""
-        return {
-            "id": self.id,
-            "room_id": self.room_id,
-            "name": self.name,
-            "description": self.description,
-            "current_users_count": self.current_users_count,
-            "max_users": self.max_users,
-            "status": self.status.value if self.status else None,
-            "is_public": self.is_public,
-            "created_at": self.created_at.isoformat() if self.created_at else None
-        }
+    def get_duration(self) -> Optional[int]:
+        """获取会话持续时间（秒）"""
+        if not self.started_at:
+            return None
+        
+        end_time = self.ended_at or datetime.utcnow()
+        return int((end_time - self.started_at).total_seconds())
+    
+    def is_full(self) -> bool:
+        """检查会话是否已满"""
+        return self.current_participants >= self.max_participants
+    
+    def can_join(self, user_id: int) -> bool:
+        """检查用户是否可以加入会话"""
+        if not self.is_active or self.is_archived:
+            return False
+        
+        if self.is_full():
+            return False
+        
+        # 检查用户是否已经在会话中
+        for user_session in self.user_sessions:
+            if user_session.user_id == user_id and user_session.is_active:
+                return False
+        
+        return True
 
 
 class UserSession(Base):
@@ -127,149 +121,62 @@ class UserSession(Base):
     
     __tablename__ = "user_sessions"
     
+    # 基本信息
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    collaboration_session_id = Column(Integer, ForeignKey("collaboration_sessions.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("collaboration_sessions.id"), nullable=False)
     
     # 会话信息
-    session_token = Column(String(255), unique=True, index=True)
-    socket_id = Column(String(100), index=True)  # WebSocket连接ID
+    role = Column(String(50), default=UserRole.PARTICIPANT)
+    is_active = Column(Boolean, default=True)
     
     # 用户状态
-    role = Column(Enum(UserRole), default=UserRole.PARTICIPANT)
-    is_online = Column(Boolean, default=True)
-    is_speaking = Column(Boolean, default=False)
-    is_sharing_screen = Column(Boolean, default=False)
+    connection_status = Column(String(50), default="connected")  # connected, disconnected, away
+    last_activity = Column(DateTime(timezone=True), server_default=func.now())
     
-    # 位置信息（3D空间中的位置）
-    position = Column(JSON, default={"x": 0, "y": 0, "z": 0})
-    rotation = Column(JSON, default={"x": 0, "y": 0, "z": 0})
-    
-    # 用户偏好
-    audio_enabled = Column(Boolean, default=True)
-    video_enabled = Column(Boolean, default=False)
-    notifications_enabled = Column(Boolean, default=True)
+    # 用户设置
+    settings = Column(JSON, default={})
     
     # 时间戳
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_activity_at = Column(DateTime(timezone=True), server_default=func.now())
     left_at = Column(DateTime(timezone=True))
     
     # 关系
     user = relationship("User", back_populates="user_sessions")
-    collaboration_session = relationship("CollaborationSession", back_populates="user_sessions")
+    session = relationship("CollaborationSession", back_populates="user_sessions")
     
     def __repr__(self):
-        return f"<UserSession(id={self.id}, user_id={self.user_id}, session_id={self.collaboration_session_id})>"
+        return f"<UserSession(id={self.id}, user_id={self.user_id}, session_id={self.session_id})>"
     
     def to_dict(self):
         """转换为字典"""
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "collaboration_session_id": self.collaboration_session_id,
-            "session_token": self.session_token,
-            "socket_id": self.socket_id,
-            "role": self.role.value if self.role else None,
-            "is_online": self.is_online,
-            "is_speaking": self.is_speaking,
-            "is_sharing_screen": self.is_sharing_screen,
-            "position": self.position,
-            "rotation": self.rotation,
-            "audio_enabled": self.audio_enabled,
-            "video_enabled": self.video_enabled,
-            "notifications_enabled": self.notifications_enabled,
+            "session_id": self.session_id,
+            "role": self.role,
+            "is_active": self.is_active,
+            "connection_status": self.connection_status,
+            "last_activity": self.last_activity.isoformat() if self.last_activity else None,
+            "settings": self.settings,
             "joined_at": self.joined_at.isoformat() if self.joined_at else None,
-            "last_activity_at": self.last_activity_at.isoformat() if self.last_activity_at else None,
             "left_at": self.left_at.isoformat() if self.left_at else None
         }
-
-
-class SessionEvent(Base):
-    """会话事件模型"""
     
-    __tablename__ = "session_events"
+    def get_session_duration(self) -> Optional[int]:
+        """获取用户在会话中的时间（秒）"""
+        if not self.joined_at:
+            return None
+        
+        end_time = self.left_at or datetime.utcnow()
+        return int((end_time - self.joined_at).total_seconds())
     
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("collaboration_sessions.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))  # 可能是系统事件，所以可为空
+    def update_activity(self):
+        """更新用户活动时间"""
+        self.last_activity = datetime.utcnow()
     
-    # 事件信息
-    event_type = Column(String(50), nullable=False)  # join, leave, message, object_create, etc.
-    event_data = Column(JSON)  # 事件具体数据
-    
-    # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # 关系
-    session = relationship("CollaborationSession", back_populates="session_events")
-    user = relationship("User")
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            "id": self.id,
-            "session_id": self.session_id,
-            "user_id": self.user_id,
-            "event_type": self.event_type,
-            "event_data": self.event_data,
-            "created_at": self.created_at.isoformat() if self.created_at else None
-        }
-
-
-class SharedObject(Base):
-    """共享对象模型"""
-    
-    __tablename__ = "shared_objects"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("collaboration_sessions.id"), nullable=False)
-    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    # 对象信息
-    object_type = Column(String(50), nullable=False)  # text, image, 3d_model, thinking_map, etc.
-    object_name = Column(String(200))
-    object_data = Column(JSON)  # 对象具体数据
-    
-    # 3D空间位置
-    position = Column(JSON, default={"x": 0, "y": 0, "z": 0})
-    rotation = Column(JSON, default={"x": 0, "y": 0, "z": 0})
-    scale = Column(JSON, default={"x": 1, "y": 1, "z": 1})
-    
-    # 对象状态
-    is_visible = Column(Boolean, default=True)
-    is_locked = Column(Boolean, default=False)
-    
-    # 权限设置
-    permissions = Column(JSON, default={
-        "view": "all",  # all, creator, moderators
-        "edit": "creator",  # all, creator, moderators
-        "delete": "creator"
-    })
-    
-    # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    # 关系
-    session = relationship("CollaborationSession", back_populates="shared_objects")
-    creator = relationship("User")
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            "id": self.id,
-            "session_id": self.session_id,
-            "creator_id": self.creator_id,
-            "object_type": self.object_type,
-            "object_name": self.object_name,
-            "object_data": self.object_data,
-            "position": self.position,
-            "rotation": self.rotation,
-            "scale": self.scale,
-            "is_visible": self.is_visible,
-            "is_locked": self.is_locked,
-            "permissions": self.permissions,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        } 
+    def leave_session(self):
+        """离开会话"""
+        self.is_active = False
+        self.left_at = datetime.utcnow()
+        self.connection_status = "disconnected" 

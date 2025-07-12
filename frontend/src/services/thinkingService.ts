@@ -1,10 +1,9 @@
 /**
- * 思维分析API服务
+ * 思维分析服务
  */
 
-import { get, post, uploadFile } from './api';
+import { get, post, put, del } from './api';
 
-// 思维分析请求参数
 export interface ThinkingAnalysisRequest {
   text: string;
   analysis_type?: 'comprehensive' | 'visual' | 'logical' | 'creative';
@@ -12,280 +11,313 @@ export interface ThinkingAnalysisRequest {
   user_id?: string;
 }
 
-// 思维分析响应
 export interface ThinkingAnalysisResponse {
   success: boolean;
   analysis_id?: string;
+  results: {
+    visual_thinking?: {
+      score: number;
+      concepts: string[];
+      associations: string[];
+    };
+    logical_thinking?: {
+      score: number;
+      reasoning_steps: string[];
+      conclusions: string[];
+    };
+    creative_thinking?: {
+      score: number;
+      innovations: string[];
+      possibilities: string[];
+    };
+  };
   thinking_summary: {
     dominant_thinking_style: string;
     thinking_scores: Record<string, number>;
     balance_index: number;
-    thinking_complexity: number;
+    insights: string[];
   };
-  individual_analyses: {
-    logical_thinking?: any;
-    creative_thinking?: any;
-    visual_thinking?: any;
-  };
-  processing_time: number;
-  confidence_score: number;
   timestamp: string;
   error?: string;
 }
 
-// 创意生成请求参数
-export interface CreativeIdeaRequest {
+export interface ThinkingAnalysisHistory {
+  id: number;
+  input_text: string;
+  analysis_type: string;
+  thinking_summary: {
+    dominant_thinking_style: string;
+    thinking_scores: Record<string, number>;
+    balance_index: number;
+  };
+  created_at: string;
+  is_favorited: boolean;
+}
+
+export interface ThinkingStatistics {
+  total_analyses: number;
+  dominant_style: string;
+  average_scores: Record<string, number>;
+  improvement_trend: string;
+  recent_analyses: number;
+  favorite_count: number;
+}
+
+export interface CreativeIdeasRequest {
   prompt: string;
   num_ideas?: number;
   creativity_level?: number;
   user_id?: string;
 }
 
-// 创意生成响应
-export interface CreativeIdeaResponse {
+export interface CreativeIdeasResponse {
   success: boolean;
   prompt: string;
   generated_ideas: Array<{
-    idea: string;
-    creativity_score: number;
+    title: string;
+    description: string;
     novelty: number;
-    feasibility?: number;
+    feasibility: number;
+    impact: number;
   }>;
   creativity_metrics: {
     average_creativity_score: number;
     idea_diversity: number;
-    novelty_index?: number;
-    processing_time?: number;
+    novelty_index: number;
   };
 }
 
-// 分析历史响应
-export interface AnalysisHistoryResponse {
-  success: boolean;
-  analyses: Array<{
-    id: string;
-    analysis_type: string;
-    dominant_thinking_style: string;
-    balance_index: number;
-    confidence_score: number;
-    created_at: string;
-    tags: string[];
-    summary?: string;
-  }>;
-  total_count: number;
-  pagination: {
-    limit: number;
-    offset: number;
-    has_more: boolean;
-  };
-}
-
-// 思维统计响应
-export interface ThinkingStatisticsResponse {
-  success: boolean;
-  user_id: string;
-  statistics: {
-    total_analyses: number;
-    avg_confidence: number;
-    avg_balance_index: number;
-    avg_processing_time: number;
-    style_distribution: Record<string, number>;
-    improvement_trend: 'improving' | 'stable' | 'declining';
-    user_thinking_stats: Record<string, any>;
-  };
-  insights: string[];
-}
-
-/**
- * 思维分析API服务类
- */
 class ThinkingService {
   
   /**
    * 分析思维模式
    */
   async analyzeThinking(request: ThinkingAnalysisRequest): Promise<ThinkingAnalysisResponse> {
-    return post<ThinkingAnalysisResponse>('/thinking/analyze', request);
+    try {
+      const response = await post('/thinking/analyze', {
+        text: request.text,
+        analysis_type: request.analysis_type || 'comprehensive',
+        save_result: request.save_result !== false,
+        user_id: request.user_id
+      });
+
+      return response;
+    } catch (error) {
+      console.error('思维分析失败:', error);
+      throw error;
+    }
   }
 
   /**
    * 分析图像思维
    */
-  async analyzeImageThinking(
-    file: File, 
-    userId?: string, 
-    saveResult: boolean = true
-  ): Promise<any> {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (userId) formData.append('user_id', userId);
-    formData.append('save_result', saveResult.toString());
+  async analyzeImageThinking(file: File, userId?: string): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (userId) {
+        formData.append('user_id', userId);
+      }
+      formData.append('save_result', 'true');
 
-    return uploadFile('/thinking/analyze-image', file);
+      const response = await post('/thinking/analyze-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      return response;
+    } catch (error) {
+      console.error('图像思维分析失败:', error);
+      throw error;
+    }
   }
 
   /**
    * 生成创意想法
    */
-  async generateCreativeIdeas(request: CreativeIdeaRequest): Promise<CreativeIdeaResponse> {
-    const formData = new FormData();
-    formData.append('prompt', request.prompt);
-    formData.append('num_ideas', (request.num_ideas || 3).toString());
-    formData.append('creativity_level', (request.creativity_level || 0.8).toString());
-    if (request.user_id) formData.append('user_id', request.user_id);
+  async generateCreativeIdeas(request: CreativeIdeasRequest): Promise<CreativeIdeasResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('prompt', request.prompt);
+      formData.append('num_ideas', String(request.num_ideas || 3));
+      formData.append('creativity_level', String(request.creativity_level || 0.8));
+      if (request.user_id) {
+        formData.append('user_id', request.user_id);
+      }
 
-    return post<CreativeIdeaResponse>('/thinking/generate-ideas', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  }
+      const response = await post('/thinking/generate-ideas', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
-  /**
-   * 获取分析历史
-   */
-  async getAnalysisHistory(
-    userId: string,
-    limit: number = 20,
-    offset: number = 0,
-    analysisType?: string
-  ): Promise<AnalysisHistoryResponse> {
-    const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString(),
-    });
-    
-    if (analysisType) {
-      params.append('analysis_type', analysisType);
+      return response;
+    } catch (error) {
+      console.error('创意生成失败:', error);
+      throw error;
     }
-
-    return get<AnalysisHistoryResponse>(`/thinking/history/${userId}?${params}`);
   }
 
   /**
-   * 获取分析详情
+   * 获取思维分析历史
+   */
+  async getAnalysisHistory(userId: string, options?: {
+    limit?: number;
+    offset?: number;
+    analysis_type?: string;
+  }): Promise<ThinkingAnalysisHistory[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options.limit));
+      if (options?.offset) params.append('offset', String(options.offset));
+      if (options?.analysis_type) params.append('analysis_type', options.analysis_type);
+
+      const response = await get(`/thinking/history/${userId}?${params.toString()}`);
+      return response.history || [];
+    } catch (error) {
+      console.error('获取分析历史失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取思维统计信息
+   */
+  async getThinkingStatistics(userId: string): Promise<ThinkingStatistics> {
+    try {
+      const response = await get(`/thinking/statistics/${userId}`);
+      return response.statistics;
+    } catch (error) {
+      console.error('获取思维统计失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 收藏/取消收藏分析结果
+   */
+  async toggleFavorite(analysisId: string, isFavorited: boolean): Promise<void> {
+    try {
+      await put(`/thinking/analysis/${analysisId}/favorite`, {
+        is_favorited: isFavorited
+      });
+    } catch (error) {
+      console.error('收藏操作失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 删除分析结果
+   */
+  async deleteAnalysis(analysisId: string): Promise<void> {
+    try {
+      await del(`/thinking/analysis/${analysisId}`);
+    } catch (error) {
+      console.error('删除分析失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取分析结果详情
    */
   async getAnalysisDetail(analysisId: string): Promise<any> {
-    return get(`/thinking/analysis/${analysisId}`);
-  }
-
-  /**
-   * 获取思维统计
-   */
-  async getThinkingStatistics(userId: string): Promise<ThinkingStatisticsResponse> {
-    return get<ThinkingStatisticsResponse>(`/thinking/statistics/${userId}`);
-  }
-
-  /**
-   * 提交分析反馈
-   */
-  async submitFeedback(
-    analysisId: string,
-    feedback: {
-      rating: number;
-      feedback_text?: string;
-      is_accurate?: number;
-      suggestions?: string;
+    try {
+      const response = await get(`/thinking/analysis/${analysisId}`);
+      return response;
+    } catch (error) {
+      console.error('获取分析详情失败:', error);
+      throw error;
     }
-  ): Promise<{ success: boolean; message?: string }> {
-    return post(`/thinking/feedback/${analysisId}`, feedback);
   }
 
   /**
-   * 获取思维风格建议
+   * 更新分析结果
    */
-  async getThinkingStyleSuggestions(userId: string): Promise<{
-    success: boolean;
-    suggestions: Array<{
-      style: string;
-      description: string;
-      improvement_tips: string[];
-      exercises: string[];
-    }>;
-  }> {
-    return get(`/thinking/suggestions/${userId}`);
-  }
-
-  /**
-   * 比较思维分析结果
-   */
-  async compareAnalyses(
-    analysisIds: string[]
-  ): Promise<{
-    success: boolean;
-    comparison: {
-      common_patterns: string[];
-      differences: Record<string, any>;
-      evolution_trend?: string;
-      recommendations: string[];
-    };
-  }> {
-    return post('/thinking/compare', { analysis_ids: analysisIds });
-  }
-
-  /**
-   * 导出分析报告
-   */
-  async exportAnalysisReport(
-    userId: string,
-    format: 'pdf' | 'csv' | 'json' = 'pdf',
-    dateRange?: {
-      start_date: string;
-      end_date: string;
+  async updateAnalysis(analysisId: string, updates: {
+    is_public?: boolean;
+    is_favorited?: boolean;
+    tags?: string[];
+  }): Promise<void> {
+    try {
+      await put(`/thinking/analysis/${analysisId}`, updates);
+    } catch (error) {
+      console.error('更新分析失败:', error);
+      throw error;
     }
-  ): Promise<Blob> {
-    const params = new URLSearchParams({
-      format,
-    });
-    
-    if (dateRange) {
-      params.append('start_date', dateRange.start_date);
-      params.append('end_date', dateRange.end_date);
+  }
+
+  /**
+   * 搜索分析结果
+   */
+  async searchAnalyses(query: string, options?: {
+    user_id?: string;
+    analysis_type?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+  }): Promise<ThinkingAnalysisHistory[]> {
+    try {
+      const params = new URLSearchParams();
+      params.append('query', query);
+      if (options?.user_id) params.append('user_id', options.user_id);
+      if (options?.analysis_type) params.append('analysis_type', options.analysis_type);
+      if (options?.date_from) params.append('date_from', options.date_from);
+      if (options?.date_to) params.append('date_to', options.date_to);
+      if (options?.limit) params.append('limit', String(options.limit));
+
+      const response = await get(`/thinking/search?${params.toString()}`);
+      return response.results || [];
+    } catch (error) {
+      console.error('搜索分析失败:', error);
+      throw error;
     }
-
-    const response = await get(`/thinking/export/${userId}?${params}`, {
-      responseType: 'blob',
-    });
-    
-    return response;
   }
 
   /**
-   * 获取实时思维分析流
-   * （用于实时文本分析）
+   * 获取推荐的思维练习
    */
-  async getRealtimeAnalysis(text: string): Promise<{
-    partial_analysis: any;
-    confidence: number;
-    suggestions: string[];
-  }> {
-    return post('/thinking/realtime', { text });
+  async getRecommendedExercises(userId: string): Promise<any[]> {
+    try {
+      const response = await get(`/thinking/exercises/recommended/${userId}`);
+      return response.exercises || [];
+    } catch (error) {
+      console.error('获取推荐练习失败:', error);
+      return [];
+    }
   }
 
   /**
-   * 搜索相似分析
+   * 比较两个分析结果
    */
-  async searchSimilarAnalyses(
-    query: string,
-    userId?: string,
-    limit: number = 10
-  ): Promise<{
-    success: boolean;
-    similar_analyses: Array<{
-      id: string;
-      similarity_score: number;
-      summary: string;
-      created_at: string;
-    }>;
-  }> {
-    return post('/thinking/search', {
-      query,
-      user_id: userId,
-      limit,
-    });
+  async compareAnalyses(analysisId1: string, analysisId2: string): Promise<any> {
+    try {
+      const response = await post('/thinking/compare', {
+        analysis_id_1: analysisId1,
+        analysis_id_2: analysisId2
+      });
+      return response;
+    } catch (error) {
+      console.error('比较分析失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取思维发展趋势
+   */
+  async getThinkingTrends(userId: string, timeRange: 'week' | 'month' | 'year' = 'month'): Promise<any> {
+    try {
+      const response = await get(`/thinking/trends/${userId}?time_range=${timeRange}`);
+      return response.trends;
+    } catch (error) {
+      console.error('获取思维趋势失败:', error);
+      throw error;
+    }
   }
 }
 
-// 创建并导出服务实例
 export const thinkingService = new ThinkingService();
 export default thinkingService; 

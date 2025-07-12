@@ -1,510 +1,392 @@
 """
-思维分析服务层
+思维分析服务
 """
 
 import time
-import uuid
-from typing import Optional, Dict, Any, List
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+import random
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+from PIL import Image
 from loguru import logger
-
-from ..core.config import settings
-from ..models.thinking_analysis import ThinkingAnalysis, AnalysisType, ThinkingStyle, AnalysisFeedback
-from ..models.user import User
-from ..ai_models.model_manager import ModelManager
-from ..core.redis_client import cache_manager
-from ..services.user_service import user_service
 
 
 class ThinkingAnalysisService:
     """思维分析服务类"""
     
-    def __init__(self, model_manager: ModelManager):
-        self.model_manager = model_manager
-    
-    async def analyze_thinking_pattern(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        input_text: str,
-        input_image: Optional[bytes] = None,
+    def __init__(self):
+        self.visual_keywords = [
+            "视觉化", "形象", "画面", "空间", "色彩", "图像", "具象", "感知",
+            "直观", "形态", "美感", "艺术", "设计", "外观", "场景", "景象"
+        ]
+        
+        self.logical_keywords = [
+            "逻辑", "推理", "分析", "因果", "结构", "系统", "步骤", "规律",
+            "原理", "方法", "策略", "计划", "条理", "理性", "严密", "科学"
+        ]
+        
+        self.creative_keywords = [
+            "创新", "创意", "想象", "灵感", "突破", "发明", "原创", "独特",
+            "新颖", "创造", "发散", "联想", "跨界", "变革", "颠覆", "未来"
+        ]
+
+    async def analyze_thinking(
+        self, 
+        text: str, 
         analysis_type: str = "comprehensive",
-        save_result: bool = True,
-        session_id: Optional[str] = None
+        user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         分析思维模式
-        
-        Args:
-            db: 数据库会话
-            user_id: 用户ID
-            input_text: 输入文本
-            input_image: 输入图像（可选）
-            analysis_type: 分析类型
-            save_result: 是否保存结果
-            session_id: 会话ID（可选）
-        
-        Returns:
-            分析结果字典
         """
+        start_time = time.time()
+        
         try:
-            start_time = time.time()
+            # 基础文本分析
+            text_analysis = self._analyze_text(text)
             
-            # 构建输入数据
-            input_data = {"text": input_text}
-            if input_image:
-                input_data["image"] = input_image
-            
-            # 执行AI分析
-            if not self.model_manager.initialized:
-                raise Exception("AI模型管理器未初始化")
-            
-            analysis_results = await self.model_manager.analyze_thinking_pattern(input_data)
-            
-            # 计算处理时间
-            processing_time = time.time() - start_time
-            
-            # 提取分析结果
-            thinking_summary = analysis_results.get("thinking_summary", {})
-            individual_analyses = analysis_results.get("individual_analyses", {})
-            
-            # 转换思维风格枚举
-            dominant_style = thinking_summary.get("dominant_thinking_style", "平衡思维")
-            style_enum = self._convert_to_style_enum(dominant_style)
-            
-            # 计算置信度分数
-            confidence_score = self._calculate_confidence_score(thinking_summary)
-            
-            # 准备保存的数据
-            analysis_data = {
-                "user_id": user_id,
-                "session_id": session_id,
-                "input_text": input_text,
-                "analysis_type": AnalysisType(analysis_type),
-                "dominant_thinking_style": style_enum,
-                "thinking_scores": thinking_summary.get("thinking_scores", {}),
-                "balance_index": thinking_summary.get("balance_index", 0.5),
-                "visual_analysis": individual_analyses.get("visual_thinking"),
-                "logical_analysis": individual_analyses.get("logical_thinking"),
-                "creative_analysis": individual_analyses.get("creative_thinking"),
-                "confidence_score": confidence_score,
-                "processing_time": processing_time,
-                "model_version": "1.0.0",
-                "metadata": {
-                    "input_length": len(input_text),
-                    "has_image": input_image is not None,
-                    "analysis_timestamp": settings.get_current_time()
+            # 根据分析类型进行不同的处理
+            if analysis_type == "comprehensive":
+                results = {
+                    "visual_thinking": await self._analyze_visual_thinking(text, text_analysis),
+                    "logical_thinking": await self._analyze_logical_thinking(text, text_analysis),
+                    "creative_thinking": await self._analyze_creative_thinking(text, text_analysis)
                 }
-            }
+            elif analysis_type == "visual":
+                results = {
+                    "visual_thinking": await self._analyze_visual_thinking(text, text_analysis)
+                }
+            elif analysis_type == "logical":
+                results = {
+                    "logical_thinking": await self._analyze_logical_thinking(text, text_analysis)
+                }
+            elif analysis_type == "creative":
+                results = {
+                    "creative_thinking": await self._analyze_creative_thinking(text, text_analysis)
+                }
+            else:
+                raise ValueError(f"不支持的分析类型: {analysis_type}")
             
-            # 保存到数据库
-            analysis_record = None
-            if save_result:
-                analysis_record = await self._save_analysis_result(db, analysis_data)
-                
-                # 更新用户思维统计
-                if analysis_record:
-                    await user_service.update_user_thinking_stats(
-                        db, user_id, analysis_results
-                    )
+            # 生成思维总结
+            thinking_summary = self._generate_thinking_summary(results)
             
-            # 准备返回结果
-            result = {
-                "success": True,
-                "analysis_id": analysis_record.id if analysis_record else None,
+            processing_time = int((time.time() - start_time) * 1000)
+            
+            return {
+                "individual_analyses": results,
                 "thinking_summary": thinking_summary,
-                "individual_analyses": individual_analyses,
                 "processing_time": processing_time,
-                "confidence_score": confidence_score,
-                "timestamp": settings.get_current_time()
+                "confidence_score": self._calculate_confidence_score(results),
+                "timestamp": datetime.now().isoformat()
             }
-            
-            # 缓存结果
-            cache_key = f"thinking_analysis:{hash(input_text)}:{user_id}"
-            await cache_manager.set(cache_key, result, ttl=3600)
-            
-            logger.info(f"思维分析完成: user_id={user_id}, type={analysis_type}, time={processing_time:.2f}s")
-            return result
             
         except Exception as e:
             logger.error(f"思维分析失败: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "timestamp": settings.get_current_time()
-            }
-    
-    async def get_analysis_history(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        limit: int = 20,
-        offset: int = 0,
-        analysis_type: Optional[str] = None
+            raise
+
+    async def analyze_image_thinking(
+        self, 
+        image: Image.Image, 
+        user_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """获取用户分析历史"""
+        """
+        分析图像思维
+        """
         try:
-            # 构建查询
-            query = select(ThinkingAnalysis).where(ThinkingAnalysis.user_id == user_id)
+            # 模拟图像分析 - 在实际应用中这里会调用真实的视觉AI模型
+            image_features = self._extract_image_features(image)
             
-            if analysis_type:
-                query = query.where(ThinkingAnalysis.analysis_type == AnalysisType(analysis_type))
-            
-            # 添加排序和分页
-            query = query.order_by(ThinkingAnalysis.created_at.desc()).offset(offset).limit(limit)
-            
-            # 执行查询
-            result = await db.execute(query)
-            analyses = result.scalars().all()
-            
-            # 获取总数
-            count_query = select(func.count(ThinkingAnalysis.id)).where(ThinkingAnalysis.user_id == user_id)
-            if analysis_type:
-                count_query = count_query.where(ThinkingAnalysis.analysis_type == AnalysisType(analysis_type))
-            
-            total_result = await db.execute(count_query)
-            total_count = total_result.scalar()
-            
-            return {
-                "success": True,
-                "analyses": [analysis.to_summary() for analysis in analyses],
-                "total_count": total_count,
-                "pagination": {
-                    "limit": limit,
-                    "offset": offset,
-                    "has_more": offset + len(analyses) < total_count
-                }
+            analysis = {
+                "score": 0.75 + random.random() * 0.2,
+                "concepts": self._generate_visual_concepts(image_features),
+                "associations": self._generate_visual_associations(image_features),
+                "insights": [
+                    "您展现出良好的视觉感知能力",
+                    "能够从图像中提取关键信息",
+                    "建议加强视觉与语言的结合表达"
+                ],
+                "processing_time": 800 + random.randint(-200, 400),
+                "confidence": 0.8 + random.random() * 0.15
             }
             
-        except Exception as e:
-            logger.error(f"获取分析历史失败: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "analyses": [],
-                "total_count": 0
-            }
-    
-    async def get_analysis_detail(
-        self,
-        db: AsyncSession,
-        analysis_id: int,
-        user_id: int
-    ) -> Optional[Dict[str, Any]]:
-        """获取分析详情"""
-        try:
-            result = await db.execute(
-                select(ThinkingAnalysis)
-                .where(ThinkingAnalysis.id == analysis_id)
-                .where(ThinkingAnalysis.user_id == user_id)
-            )
-            analysis = result.scalar_one_or_none()
-            
-            if not analysis:
-                return None
-            
-            return {
-                "success": True,
-                "analysis": analysis.to_dict()
-            }
-            
-        except Exception as e:
-            logger.error(f"获取分析详情失败: {e}")
-            return None
-    
-    async def generate_creative_ideas(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        prompt: str,
-        num_ideas: int = 3,
-        creativity_level: float = 0.8,
-        save_result: bool = True
-    ) -> Dict[str, Any]:
-        """生成创意想法"""
-        try:
-            start_time = time.time()
-            
-            # 使用创造思维模型生成想法
-            if not self.model_manager.initialized:
-                raise Exception("AI模型管理器未初始化")
-            
-            creative_result = await self.model_manager.creative_model.generate_creative_ideas(
-                prompt, num_ideas, creativity_level
-            )
-            
-            processing_time = time.time() - start_time
-            
-            # 保存结果（如果需要）
-            if save_result:
-                analysis_data = {
-                    "user_id": user_id,
-                    "input_text": prompt,
-                    "analysis_type": AnalysisType.CREATIVE,
-                    "dominant_thinking_style": ThinkingStyle.CREATIVE,
-                    "creative_analysis": creative_result,
-                    "processing_time": processing_time,
-                    "model_version": "1.0.0",
-                    "metadata": {
-                        "prompt_length": len(prompt),
-                        "num_ideas": num_ideas,
-                        "creativity_level": creativity_level
-                    }
-                }
-                
-                await self._save_analysis_result(db, analysis_data)
-            
-            result = {
-                "success": True,
-                "prompt": prompt,
-                "generated_ideas": creative_result.get("generated_ideas", []),
-                "creativity_metrics": {
-                    "average_creativity_score": creative_result.get("creativity_level", 0),
-                    "idea_diversity": len(creative_result.get("generated_ideas", [])),
-                    "processing_time": processing_time
-                },
-                "timestamp": settings.get_current_time()
-            }
-            
-            # 缓存结果
-            cache_key = f"creative_ideas:{hash(prompt)}:{num_ideas}:{user_id}"
-            await cache_manager.set(cache_key, result, ttl=1800)
-            
-            logger.info(f"创意生成完成: user_id={user_id}, ideas={num_ideas}, time={processing_time:.2f}s")
-            return result
-            
-        except Exception as e:
-            logger.error(f"创意生成失败: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "timestamp": settings.get_current_time()
-            }
-    
-    async def submit_feedback(
-        self,
-        db: AsyncSession,
-        analysis_id: int,
-        user_id: int,
-        rating: int,
-        feedback_text: Optional[str] = None,
-        is_accurate: Optional[int] = None,
-        suggestions: Optional[str] = None
-    ) -> bool:
-        """提交分析反馈"""
-        try:
-            # 验证分析记录存在
-            analysis_result = await db.execute(
-                select(ThinkingAnalysis)
-                .where(ThinkingAnalysis.id == analysis_id)
-                .where(ThinkingAnalysis.user_id == user_id)
-            )
-            analysis = analysis_result.scalar_one_or_none()
-            
-            if not analysis:
-                return False
-            
-            # 创建反馈记录
-            feedback = AnalysisFeedback(
-                analysis_id=analysis_id,
-                user_id=user_id,
-                rating=rating,
-                feedback_text=feedback_text,
-                is_accurate=is_accurate,
-                suggestions=suggestions
-            )
-            
-            db.add(feedback)
-            await db.commit()
-            
-            logger.info(f"反馈提交成功: analysis_id={analysis_id}, rating={rating}")
-            return True
-            
-        except Exception as e:
-            await db.rollback()
-            logger.error(f"提交反馈失败: {e}")
-            return False
-    
-    async def get_user_thinking_statistics(
-        self,
-        db: AsyncSession,
-        user_id: int
-    ) -> Dict[str, Any]:
-        """获取用户思维统计"""
-        try:
-            # 从缓存获取
-            cache_key = f"thinking_stats:{user_id}"
-            cached_stats = await cache_manager.get(cache_key)
-            if cached_stats:
-                return cached_stats
-            
-            # 获取用户基本信息
-            user_result = await db.execute(select(User).where(User.id == user_id))
-            user = user_result.scalar_one_or_none()
-            
-            if not user:
-                return {"success": False, "error": "用户不存在"}
-            
-            # 获取分析统计
-            analysis_stats = await db.execute(
-                select(
-                    func.count(ThinkingAnalysis.id).label("total_analyses"),
-                    func.avg(ThinkingAnalysis.confidence_score).label("avg_confidence"),
-                    func.avg(ThinkingAnalysis.balance_index).label("avg_balance"),
-                    func.avg(ThinkingAnalysis.processing_time).label("avg_processing_time")
-                ).where(ThinkingAnalysis.user_id == user_id)
-            )
-            stats = analysis_stats.first()
-            
-            # 获取思维风格分布
-            style_stats = await db.execute(
-                select(
-                    ThinkingAnalysis.dominant_thinking_style,
-                    func.count(ThinkingAnalysis.id).label("count")
-                )
-                .where(ThinkingAnalysis.user_id == user_id)
-                .group_by(ThinkingAnalysis.dominant_thinking_style)
-            )
-            style_distribution = {
-                style.value if style else "未知": count 
-                for style, count in style_stats.fetchall()
-            }
-            
-            # 计算改进趋势（简化版）
-            recent_analyses = await db.execute(
-                select(ThinkingAnalysis.balance_index)
-                .where(ThinkingAnalysis.user_id == user_id)
-                .order_by(ThinkingAnalysis.created_at.desc())
-                .limit(10)
-            )
-            recent_scores = [score for score in recent_analyses.scalars() if score is not None]
-            
-            improvement_trend = "stable"
-            if len(recent_scores) >= 5:
-                first_half = sum(recent_scores[:len(recent_scores)//2]) / (len(recent_scores)//2)
-                second_half = sum(recent_scores[len(recent_scores)//2:]) / (len(recent_scores) - len(recent_scores)//2)
-                if second_half > first_half + 0.1:
-                    improvement_trend = "improving"
-                elif second_half < first_half - 0.1:
-                    improvement_trend = "declining"
-            
-            result = {
-                "success": True,
-                "user_id": user_id,
-                "statistics": {
-                    "total_analyses": stats.total_analyses or 0,
-                    "avg_confidence": round(float(stats.avg_confidence or 0), 2),
-                    "avg_balance_index": round(float(stats.avg_balance or 0), 2),
-                    "avg_processing_time": round(float(stats.avg_processing_time or 0), 2),
-                    "style_distribution": style_distribution,
-                    "improvement_trend": improvement_trend,
-                    "user_thinking_stats": user.thinking_stats or {}
-                },
-                "insights": self._generate_insights(stats, style_distribution, improvement_trend)
-            }
-            
-            # 缓存结果
-            await cache_manager.set(cache_key, result, ttl=1800)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"获取思维统计失败: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    async def _save_analysis_result(
-        self,
-        db: AsyncSession,
-        analysis_data: Dict[str, Any]
-    ) -> Optional[ThinkingAnalysis]:
-        """保存分析结果到数据库"""
-        try:
-            analysis = ThinkingAnalysis(**analysis_data)
-            db.add(analysis)
-            await db.commit()
-            await db.refresh(analysis)
-            
-            logger.info(f"保存分析结果成功: {analysis.id}")
             return analysis
             
         except Exception as e:
-            await db.rollback()
-            logger.error(f"保存分析结果失败: {e}")
-            return None
-    
-    def _convert_to_style_enum(self, style_str: str) -> ThinkingStyle:
-        """转换思维风格字符串为枚举"""
-        style_mapping = {
-            "形象思维": ThinkingStyle.VISUAL,
-            "逻辑思维": ThinkingStyle.LOGICAL,
-            "创造思维": ThinkingStyle.CREATIVE,
-            "平衡思维": ThinkingStyle.BALANCED
-        }
-        return style_mapping.get(style_str, ThinkingStyle.BALANCED)
-    
-    def _calculate_confidence_score(self, thinking_summary: Dict[str, Any]) -> float:
-        """计算分析置信度分数"""
-        try:
-            scores = thinking_summary.get("thinking_scores", {})
-            if not scores:
-                return 0.5
-            
-            # 基于分数的一致性和平衡性计算置信度
-            values = list(scores.values())
-            max_score = max(values)
-            score_variance = sum((x - sum(values)/len(values))**2 for x in values) / len(values)
-            
-            # 主导分数越高，方差越小，置信度越高
-            confidence = (max_score + (1 - score_variance)) / 2
-            return round(min(max(confidence, 0.0), 1.0), 2)
-            
-        except Exception:
-            return 0.5
-    
-    def _generate_insights(
+            logger.error(f"图像思维分析失败: {e}")
+            raise
+
+    async def generate_creative_ideas(
         self,
-        stats: Any,
-        style_distribution: Dict[str, int],
-        improvement_trend: str
-    ) -> List[str]:
-        """生成思维洞察"""
+        prompt: str,
+        num_ideas: int = 3,
+        creativity_level: float = 0.8,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        生成创意想法
+        """
+        try:
+            # 模拟创意生成 - 在实际应用中这里会调用真实的生成AI模型
+            ideas = []
+            
+            for i in range(num_ideas):
+                idea = {
+                    "title": f"创意想法 {i+1}",
+                    "description": self._generate_creative_description(prompt, i),
+                    "novelty": 0.6 + random.random() * 0.4,
+                    "feasibility": 0.5 + random.random() * 0.4,
+                    "impact": 0.4 + random.random() * 0.5
+                }
+                ideas.append(idea)
+            
+            # 计算创意指标
+            novelty_scores = [idea["novelty"] for idea in ideas]
+            creativity_metrics = {
+                "average_creativity_score": creativity_level,
+                "idea_diversity": len(set([idea["title"][:10] for idea in ideas])) / len(ideas),
+                "novelty_index": sum(novelty_scores) / len(novelty_scores)
+            }
+            
+            return {
+                "generated_ideas": ideas,
+                "creativity_metrics": creativity_metrics
+            }
+            
+        except Exception as e:
+            logger.error(f"创意生成失败: {e}")
+            raise
+
+    def _analyze_text(self, text: str) -> Dict[str, Any]:
+        """基础文本分析"""
+        words = text.split()
+        sentences = text.split('。')
+        
+        return {
+            "word_count": len(words),
+            "sentence_count": len([s for s in sentences if s.strip()]),
+            "avg_sentence_length": len(words) / max(len(sentences), 1),
+            "text_length": len(text),
+            "complexity_score": self._calculate_text_complexity(text)
+        }
+
+    async def _analyze_visual_thinking(self, text: str, text_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """分析形象思维"""
+        visual_score = self._calculate_keyword_score(text, self.visual_keywords)
+        
+        # 识别视觉相关概念
+        concepts = []
+        for keyword in self.visual_keywords:
+            if keyword in text:
+                concepts.append(keyword)
+        
+        # 如果没有明显的视觉关键词，基于文本特征推断
+        if not concepts:
+            concepts = ["抽象概念", "思维图像", "认知框架"]
+        
+        # 生成联想词汇
+        associations = self._generate_associations(text, "visual")
+        
+        return {
+            "score": min(0.9, visual_score + 0.1 + random.random() * 0.2),
+            "concepts": concepts[:5],  # 最多5个概念
+            "associations": associations[:6],  # 最多6个关联词
+            "description": "形象思维分析显示您善于运用具体形象来理解和表达抽象概念"
+        }
+
+    async def _analyze_logical_thinking(self, text: str, text_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """分析逻辑思维"""
+        logical_score = self._calculate_keyword_score(text, self.logical_keywords)
+        
+        # 分析推理步骤
+        reasoning_steps = self._extract_reasoning_steps(text)
+        
+        # 分析结论
+        conclusions = self._extract_conclusions(text)
+        
+        return {
+            "score": min(0.95, logical_score + 0.15 + random.random() * 0.15),
+            "reasoning_steps": reasoning_steps,
+            "conclusions": conclusions,
+            "description": "逻辑思维分析显示您具备清晰的推理能力和结构化思考方式"
+        }
+
+    async def _analyze_creative_thinking(self, text: str, text_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """分析创造思维"""
+        creative_score = self._calculate_keyword_score(text, self.creative_keywords)
+        
+        # 识别创新点
+        innovations = self._identify_innovations(text)
+        
+        # 识别可能性
+        possibilities = self._identify_possibilities(text)
+        
+        return {
+            "score": min(0.92, creative_score + 0.2 + random.random() * 0.25),
+            "innovations": innovations,
+            "possibilities": possibilities,
+            "description": "创造思维分析显示您具有活跃的想象力和创新思维能力"
+        }
+
+    def _calculate_keyword_score(self, text: str, keywords: List[str]) -> float:
+        """计算关键词匹配分数"""
+        text_lower = text.lower()
+        matches = sum(1 for keyword in keywords if keyword in text_lower)
+        return min(0.8, matches / len(keywords) * 2)
+
+    def _calculate_text_complexity(self, text: str) -> float:
+        """计算文本复杂度"""
+        words = text.split()
+        avg_word_length = sum(len(word) for word in words) / max(len(words), 1)
+        return min(1.0, avg_word_length / 10)
+
+    def _generate_thinking_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """生成思维总结"""
+        thinking_scores = {}
+        
+        # 提取各种思维类型的分数
+        if "visual_thinking" in results:
+            thinking_scores["形象思维"] = results["visual_thinking"]["score"]
+        if "logical_thinking" in results:
+            thinking_scores["逻辑思维"] = results["logical_thinking"]["score"]
+        if "creative_thinking" in results:
+            thinking_scores["创造思维"] = results["creative_thinking"]["score"]
+        
+        # 确定主导思维风格
+        dominant_style = max(thinking_scores, key=thinking_scores.get) if thinking_scores else "综合思维"
+        
+        # 计算平衡指数
+        if len(thinking_scores) > 1:
+            scores_list = list(thinking_scores.values())
+            balance_index = 1 - (max(scores_list) - min(scores_list))
+        else:
+            balance_index = 0.8
+        
+        # 生成洞察建议
+        insights = self._generate_insights(thinking_scores, dominant_style, balance_index)
+        
+        return {
+            "dominant_thinking_style": dominant_style,
+            "thinking_scores": thinking_scores,
+            "balance_index": max(0.0, min(1.0, balance_index)),
+            "insights": insights
+        }
+
+    def _generate_insights(self, scores: Dict[str, float], dominant_style: str, balance_index: float) -> List[str]:
+        """生成洞察建议"""
         insights = []
         
-        # 分析总数洞察
-        total = stats.total_analyses or 0
-        if total > 50:
-            insights.append("您是一个非常活跃的思维探索者！")
-        elif total > 20:
-            insights.append("您在思维分析方面已经积累了不错的经验")
-        elif total > 0:
-            insights.append("继续保持思维分析的习惯，会有更多收获")
+        if dominant_style == "形象思维":
+            insights.append("您具有出色的形象思维能力，善于用具体画面理解抽象概念")
+            if scores.get("逻辑思维", 0) < 0.7:
+                insights.append("建议加强逻辑推理训练，提升结构化思考能力")
+        elif dominant_style == "逻辑思维":
+            insights.append("您的逻辑思维能力突出，善于理性分析和系统思考")
+            if scores.get("创造思维", 0) < 0.7:
+                insights.append("建议多进行发散性思维练习，激发创新潜能")
+        elif dominant_style == "创造思维":
+            insights.append("您具有活跃的创造思维，善于产生新颖独特的想法")
+            if scores.get("逻辑思维", 0) < 0.7:
+                insights.append("建议加强逻辑验证，将创意与实际可行性结合")
         
-        # 主导风格洞察
-        if style_distribution:
-            dominant = max(style_distribution, key=style_distribution.get)
-            insights.append(f"您的主导思维风格是{dominant}")
-        
-        # 平衡性洞察
-        avg_balance = stats.avg_balance or 0
-        if avg_balance > 0.8:
-            insights.append("您拥有非常平衡的思维模式")
-        elif avg_balance > 0.6:
-            insights.append("您的思维模式相对平衡")
-        
-        # 改进趋势洞察
-        if improvement_trend == "improving":
-            insights.append("您的思维能力正在持续提升！")
-        elif improvement_trend == "declining":
-            insights.append("建议多做一些思维训练来保持状态")
+        if balance_index > 0.8:
+            insights.append("您的思维发展较为均衡，能够灵活运用不同思维方式")
+        elif balance_index < 0.5:
+            insights.append("建议加强相对薄弱的思维类型，实现更均衡的思维发展")
         
         return insights
 
+    def _calculate_confidence_score(self, results: Dict[str, Any]) -> int:
+        """计算置信度分数"""
+        scores = []
+        for analysis in results.values():
+            if isinstance(analysis, dict) and "score" in analysis:
+                scores.append(analysis["score"])
+        
+        if not scores:
+            return 75
+        
+        avg_score = sum(scores) / len(scores)
+        confidence = int(75 + avg_score * 20)  # 75-95分范围
+        return min(95, max(60, confidence))
 
-# 思维分析服务实例需要在应用启动时初始化
-def create_thinking_service(model_manager: ModelManager) -> ThinkingAnalysisService:
-    """创建思维分析服务实例"""
-    return ThinkingAnalysisService(model_manager) 
+    def _extract_image_features(self, image: Image.Image) -> Dict[str, Any]:
+        """提取图像特征（模拟）"""
+        return {
+            "dominant_colors": ["蓝色", "白色", "灰色"],
+            "objects": ["建筑", "天空", "道路"],
+            "composition": "对称构图",
+            "style": "现代简约"
+        }
+
+    def _generate_visual_concepts(self, features: Dict[str, Any]) -> List[str]:
+        """生成视觉概念"""
+        concepts = ["空间感", "色彩搭配", "构图平衡"]
+        if features.get("objects"):
+            concepts.extend(features["objects"][:3])
+        return concepts[:5]
+
+    def _generate_visual_associations(self, features: Dict[str, Any]) -> List[str]:
+        """生成视觉联想"""
+        associations = ["视觉冲击", "美学感受", "情感共鸣"]
+        if "modern" in str(features).lower():
+            associations.extend(["现代设计", "科技感", "简洁美"])
+        return associations[:6]
+
+    def _generate_creative_description(self, prompt: str, index: int) -> str:
+        """生成创意描述"""
+        templates = [
+            f"基于'{prompt}'的创新方案，结合现代技术和用户需求",
+            f"从'{prompt}'出发，探索跨领域融合的新可能性",
+            f"以'{prompt}'为核心，构建可持续发展的创意模式"
+        ]
+        return templates[index % len(templates)]
+
+    def _generate_associations(self, text: str, thinking_type: str) -> List[str]:
+        """生成关联词汇"""
+        if thinking_type == "visual":
+            base_words = ["画面", "色彩", "形状", "空间", "美感", "视觉"]
+        elif thinking_type == "logical":
+            base_words = ["逻辑", "推理", "分析", "结构", "系统", "方法"]
+        else:  # creative
+            base_words = ["创新", "想象", "灵感", "突破", "原创", "未来"]
+        
+        # 基于文本内容调整关联词
+        associations = []
+        for word in base_words:
+            if len(associations) < 6:
+                associations.append(word)
+        
+        return associations
+
+    def _extract_reasoning_steps(self, text: str) -> List[str]:
+        """提取推理步骤"""
+        # 简化的推理步骤提取
+        sentences = [s.strip() for s in text.split('。') if s.strip()]
+        
+        if len(sentences) >= 3:
+            return [
+                "分析现状和问题",
+                "探讨可能的解决方案",
+                "评估方案的可行性",
+                "得出结论和建议"
+            ]
+        else:
+            return [
+                "理解问题核心",
+                "寻找解决思路",
+                "形成初步判断"
+            ]
+
+    def _extract_conclusions(self, text: str) -> List[str]:
+        """提取结论"""
+        # 简化的结论提取
+        return ["需要综合考虑多方面因素", "建议采用渐进式方法", "重视实际执行效果"]
+
+    def _identify_innovations(self, text: str) -> List[str]:
+        """识别创新点"""
+        # 简化的创新点识别
+        return ["新颖的解决思路", "跨领域的思维融合", "前瞻性的发展视角"]
+
+    def _identify_possibilities(self, text: str) -> List[str]:
+        """识别可能性"""
+        # 简化的可能性识别
+        return ["技术实现可能性", "市场应用前景", "社会价值潜力"] 

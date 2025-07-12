@@ -42,7 +42,9 @@
     "@types/lodash": "^4.14.202",
     "date-fns": "^2.30.0",
     "d3": "^7.8.5",
-    "@types/d3": "^7.4.3"
+    "@types/d3": "^7.4.3",
+    "formik": "^2.4.5",
+    "react-query": "^3.39.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
@@ -69,7 +71,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,css,scss}\"",
     "type-check": "tsc --noEmit"

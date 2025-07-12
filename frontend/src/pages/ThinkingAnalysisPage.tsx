@@ -1,499 +1,690 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
+  Container,
   Typography,
   Paper,
-  Grid,
+  TextField,
+  Button,
   Card,
   CardContent,
-  CardActions,
-  Button,
-  TextField,
+  Grid,
   Chip,
-  Avatar,
   LinearProgress,
-  Divider,
   Alert,
-  Breadcrumbs,
-  Link,
+  CircularProgress,
   Tabs,
   Tab,
-  FormControl,
-  InputLabel,
-  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Menu,
   MenuItem,
-  Slider,
-  Switch,
-  FormControlLabel
+  Divider,
+  Stack,
+  Tooltip,
+  Fade,
+  Slide
 } from '@mui/material';
 import {
   Psychology,
-  AccountTree,
-  Lightbulb,
-  NavigateNext,
   Send,
-  Clear,
-  Download,
-  Share,
   History,
-  Settings,
+  Favorite,
+  FavoriteBorder,
+  Share,
+  Download,
+  Delete,
+  MoreVert,
   TrendingUp,
+  Lightbulb,
+  Analytics,
+  Visibility,
+  School,
+  EmojiObjects,
   Assessment,
-  AutoFixHigh,
-  Insights
+  Timeline,
+  Memory,
+  AutoAwesome
 } from '@mui/icons-material';
-import { useNotification, NotificationTemplates } from '../components/common/NotificationProvider';
-import LoadingOverlay, { ThinkingLoader } from '../components/common/LoadingOverlay';
-import { useLocalStorage, STORAGE_KEYS } from '../hooks/useLocalStorage';
-import { useLazyAsync } from '../hooks/useAsync';
+import { useAuth } from '../contexts/AuthContext';
+import { thinkingService, ThinkingAnalysisRequest, ThinkingAnalysisResponse } from '../services/thinkingService';
 
-interface ThinkingResult {
-  type: 'visual' | 'logical' | 'creative';
-  score: number;
-  analysis: string;
-  suggestions: string[];
-  keywords: string[];
-  confidence: number;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
-interface AnalysisHistory {
-  id: string;
-  input: string;
-  results: ThinkingResult[];
-  timestamp: Date;
-  duration: number;
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`thinking-tabpanel-${index}`}
+      aria-labelledby={`thinking-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
 }
 
 const ThinkingAnalysisPage: React.FC = () => {
-  const [input, setInput] = useState('');
-  const [analysisType, setAnalysisType] = useState<'auto' | 'visual' | 'logical' | 'creative'>('auto');
-  const [currentTab, setCurrentTab] = useState(0);
-  const [results, setResults] = useState<ThinkingResult[]>([]);
-  const [realTimeMode, setRealTimeMode] = useState(false);
-  const [analysisDepth, setAnalysisDepth] = useState(50);
+  const navigate = useNavigate();
+  const { user, isLoggedIn } = useAuth();
   
-  // 本地存储
-  const [analysisHistory, setAnalysisHistory] = useLocalStorage<AnalysisHistory[]>(
-    STORAGE_KEYS.THINKING_HISTORY, 
-    []
-  );
+  const [currentTab, setCurrentTab] = useState(0);
+  const [inputText, setInputText] = useState('');
+  const [analysisType, setAnalysisType] = useState<'comprehensive' | 'visual' | 'logical' | 'creative'>('comprehensive');
+  const [isLoading, setIsLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<ThinkingAnalysisResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<any | null>(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
-  // 通知系统
-  const { success, error, info } = useNotification();
+  // 检查用户登录状态
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
+    }
+  }, [isLoggedIn, navigate]);
 
-  // 异步分析执行
-  const { loading, execute: performAnalysis } = useLazyAsync(async () => {
-    if (!input.trim()) {
-      error('请输入要分析的内容');
+  // 加载分析历史
+  useEffect(() => {
+    if (isLoggedIn && user && currentTab === 1) {
+      loadAnalysisHistory();
+    }
+  }, [isLoggedIn, user, currentTab]);
+
+  const loadAnalysisHistory = async () => {
+    if (!user) return;
+    
+    setHistoryLoading(true);
+    try {
+      const history = await thinkingService.getAnalysisHistory(user.id.toString(), {
+        limit: 20,
+        offset: 0
+      });
+      setAnalysisHistory(history);
+    } catch (error) {
+      console.error('加载分析历史失败:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!inputText.trim()) {
+      setError('请输入要分析的思维内容');
       return;
     }
 
-    info('开始AI思维分析...');
-    
-    // 模拟AI分析过程
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-    
-    // 模拟分析结果
-    const mockResults: ThinkingResult[] = [
-      {
-        type: 'visual',
-        score: 75 + Math.random() * 20,
-        analysis: '您的表达中展现出较强的形象思维能力。能够运用具体的场景和画面来阐述抽象概念，这种能力有助于创新设计和艺术创作。',
-        suggestions: ['尝试更多的视觉化表达', '结合图像和文字进行思考', '培养空间想象能力'],
-        keywords: ['视觉化', '具象思维', '空间感知'],
-        confidence: 0.85
-      },
-      {
-        type: 'logical',
-        score: 68 + Math.random() * 25,
-        analysis: '逻辑思维结构清晰，能够按照合理的逻辑顺序组织思路。建议在分析问题时加强因果关系的梳理。',
-        suggestions: ['加强逻辑推理训练', '多进行结构化思考', '培养批判性思维'],
-        keywords: ['逻辑推理', '结构化', '因果分析'],
-        confidence: 0.78
-      },
-      {
-        type: 'creative',
-        score: 82 + Math.random() * 15,
-        analysis: '创造思维活跃，善于发散思考和联想。您的想法具有创新性，能够从多个角度思考问题。',
-        suggestions: ['保持开放的思维态度', '多进行头脑风暴', '尝试跨领域思考'],
-        keywords: ['发散思维', '创新思路', '跨域联想'],
-        confidence: 0.92
+    if (!user) {
+      setError('请先登录');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setAnalysisResult(null);
+
+    try {
+      const request: ThinkingAnalysisRequest = {
+        text: inputText,
+        analysis_type: analysisType,
+        save_result: true,
+        user_id: user.id.toString()
+      };
+
+      const result = await thinkingService.analyzeThinking(request);
+      
+      if (result.success) {
+        setAnalysisResult(result);
+        // 如果当前在历史页面，刷新历史记录
+        if (currentTab === 1) {
+          loadAnalysisHistory();
+        }
+      } else {
+        setError(result.error || '分析失败');
       }
-    ].filter(result => analysisType === 'auto' || result.type === analysisType);
-
-    setResults(mockResults);
-
-    // 保存到历史记录
-    const newHistory: AnalysisHistory = {
-      id: `analysis_${Date.now()}`,
-      input,
-      results: mockResults,
-      timestamp: new Date(),
-      duration: 2000 + Math.random() * 3000
-    };
-
-    setAnalysisHistory(prev => [newHistory, ...prev.slice(0, 9)]); // 保持最新10条记录
-
-    // 显示成功通知
-    const avgScore = mockResults.reduce((sum, r) => sum + r.score, 0) / mockResults.length;
-    success(`分析完成！综合得分: ${avgScore.toFixed(1)}分`, '思维分析');
-  });
-
-  const handleAnalysis = useCallback(() => {
-    performAnalysis();
-  }, [performAnalysis]);
-
-  const handleClear = () => {
-    setInput('');
-    setResults([]);
+    } catch (error: any) {
+      setError(error.message || '分析过程中发生错误');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleExport = () => {
-    if (results.length === 0) {
-      error('没有可导出的分析结果');
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
+  };
+
+  const handleHistoryItemClick = (historyItem: any) => {
+    setSelectedHistory(historyItem);
+    setShowHistoryDialog(true);
+  };
+
+  const handleToggleFavorite = async (analysisId: string, isFavorited: boolean) => {
+    try {
+      await thinkingService.toggleFavorite(analysisId, !isFavorited);
+      loadAnalysisHistory();
+    } catch (error) {
+      console.error('收藏操作失败:', error);
+    }
+  };
+
+  const handleDeleteAnalysis = async (analysisId: string) => {
+    if (!window.confirm('确定要删除这个分析记录吗？')) {
       return;
     }
 
-    const exportData = {
-      input,
-      results,
-      analysisType,
-      timestamp: new Date(),
-      analysisDepth
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `思维分析_${new Date().toLocaleDateString()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    success('分析结果已导出');
-  };
-
-  const getThinkingTypeColor = (type: string) => {
-    switch (type) {
-      case 'visual': return '#2196F3';
-      case 'logical': return '#FF5722';
-      case 'creative': return '#4CAF50';
-      default: return '#757575';
+    try {
+      await thinkingService.deleteAnalysis(analysisId);
+      loadAnalysisHistory();
+    } catch (error) {
+      console.error('删除分析失败:', error);
     }
   };
 
-  const getThinkingTypeIcon = (type: string) => {
-    switch (type) {
-      case 'visual': return <Psychology />;
-      case 'logical': return <AccountTree />;
-      case 'creative': return <Lightbulb />;
-      default: return <Assessment />;
-    }
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, historyItem: any) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedHistory(historyItem);
   };
 
-  const getThinkingTypeName = (type: string) => {
-    switch (type) {
-      case 'visual': return '形象思维';
-      case 'logical': return '逻辑思维';
-      case 'creative': return '创造思维';
-      default: return '未知类型';
-    }
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setSelectedHistory(null);
   };
 
-  return (
-    <LoadingOverlay loading={loading} type="thinking" message="AI正在进行深度思维分析...">
-      <Box>
-        {/* 面包屑导航 */}
-        <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1 }}>
-          <Link underline="hover" color="inherit" href="/">
-            首页
-          </Link>
-          <Typography color="text.primary">思维分析</Typography>
-        </Breadcrumbs>
+  const renderAnalysisResult = () => {
+    if (!analysisResult) return null;
 
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Psychology /> AI思维分析
-          <Chip label="GPT-4驱动" size="small" color="primary" />
-        </Typography>
+    const { results, thinking_summary } = analysisResult;
+    const scores = thinking_summary.thinking_scores || {};
 
-        <Typography variant="body1" color="text.secondary" paragraph>
-          运用先进的AI技术分析您的思维模式，识别形象思维、逻辑思维和创造思维的特点
-        </Typography>
-
-        <Grid container spacing={3}>
-          {/* 输入区域 */}
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                💭 输入您的想法
+    return (
+      <Fade in>
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            🧠 思维分析结果
+          </Typography>
+          
+          {/* 主导思维风格 */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" color="primary" gutterBottom>
+                主导思维风格: {thinking_summary.dominant_thinking_style}
               </Typography>
-
-              <TextField
-                fullWidth
-                multiline
-                rows={6}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="请输入您想要分析的内容，可以是：&#10;• 对某个问题的思考过程&#10;• 创意想法或解决方案&#10;• 学习心得或感悟&#10;• 工作中遇到的挑战"
-                variant="outlined"
-                sx={{ mb: 3 }}
-              />
-
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>分析类型</InputLabel>
-                  <Select
-                    value={analysisType}
-                    label="分析类型"
-                    onChange={(e) => setAnalysisType(e.target.value as any)}
-                  >
-                    <MenuItem value="auto">智能分析</MenuItem>
-                    <MenuItem value="visual">形象思维</MenuItem>
-                    <MenuItem value="logical">逻辑思维</MenuItem>
-                    <MenuItem value="creative">创造思维</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={realTimeMode}
-                      onChange={(e) => setRealTimeMode(e.target.checked)}
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                平衡指数: {(thinking_summary.balance_index * 100).toFixed(1)}%
+              </Typography>
+              
+              {/* 思维分数 */}
+              <Box sx={{ mt: 2 }}>
+                {Object.entries(scores).map(([style, score]) => (
+                  <Box key={style} sx={{ mb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="body2">{style}</Typography>
+                      <Typography variant="body2">{(score * 100).toFixed(1)}%</Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={score * 100}
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: 'grey.200',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: style === thinking_summary.dominant_thinking_style ? 'primary.main' : 'secondary.main'
+                        }
+                      }}
                     />
-                  }
-                  label="实时分析"
-                />
-
-                <Button
-                  variant="contained"
-                  startIcon={<Send />}
-                  onClick={handleAnalysis}
-                  disabled={!input.trim() || loading}
-                  sx={{ ml: 'auto' }}
-                >
-                  开始分析
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  startIcon={<Clear />}
-                  onClick={handleClear}
-                >
-                  清空
-                </Button>
-              </Box>
-            </Paper>
-
-            {/* 分析结果 */}
-            {results.length > 0 && (
-              <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6">
-                    🎯 分析结果
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={handleExport}
-                    >
-                      导出结果
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<Share />}
-                      onClick={() => info('分享功能开发中...')}
-                    >
-                      分享
-                    </Button>
                   </Box>
-                </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
 
-                <Grid container spacing={3}>
-                  {results.map((result, index) => (
-                    <Grid item xs={12} md={4} key={index}>
-                      <Card 
-                        sx={{ 
-                          height: '100%',
-                          borderTop: `4px solid ${getThinkingTypeColor(result.type)}`
-                        }}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                            <Avatar
-                              sx={{
-                                bgcolor: getThinkingTypeColor(result.type),
-                                mr: 2,
-                                width: 48,
-                                height: 48
-                              }}
-                            >
-                              {getThinkingTypeIcon(result.type)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="h6">
-                                {getThinkingTypeName(result.type)}
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="h4" color={getThinkingTypeColor(result.type)}>
-                                  {result.score.toFixed(0)}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  分
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </Box>
+          {/* 详细分析结果 */}
+          <Grid container spacing={3}>
+            {results.visual_thinking && (
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="primary" gutterBottom>
+                      <Visibility sx={{ mr: 1 }} />
+                      形象思维
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      分数: {(results.visual_thinking.score * 100).toFixed(1)}%
+                    </Typography>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>关键概念:</Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {results.visual_thinking.concepts.map((concept, index) => (
+                        <Chip key={index} label={concept} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                      ))}
+                    </Box>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>联想词汇:</Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {results.visual_thinking.associations.map((association, index) => (
+                        <Chip key={index} label={association} size="small" variant="outlined" sx={{ mr: 0.5, mb: 0.5 }} />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
 
-                          <LinearProgress
-                            variant="determinate"
-                            value={result.score}
-                            sx={{
-                              height: 8,
-                              borderRadius: 4,
-                              mb: 2,
-                              backgroundColor: 'grey.200',
-                              '& .MuiLinearProgress-bar': {
-                                backgroundColor: getThinkingTypeColor(result.type)
-                              }
-                            }}
-                          />
+            {results.logical_thinking && (
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="primary" gutterBottom>
+                      <Assessment sx={{ mr: 1 }} />
+                      逻辑思维
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      分数: {(results.logical_thinking.score * 100).toFixed(1)}%
+                    </Typography>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>推理步骤:</Typography>
+                    <List dense>
+                      {results.logical_thinking.reasoning_steps.map((step, index) => (
+                        <ListItem key={index} sx={{ py: 0.5 }}>
+                          <ListItemIcon>
+                            <Typography variant="body2" color="primary">{index + 1}.</Typography>
+                          </ListItemIcon>
+                          <ListItemText primary={step} primaryTypographyProps={{ variant: 'body2' }} />
+                        </ListItem>
+                      ))}
+                    </List>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>结论:</Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {results.logical_thinking.conclusions.map((conclusion, index) => (
+                        <Chip key={index} label={conclusion} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
 
-                          <Typography variant="body2" paragraph>
-                            {result.analysis}
-                          </Typography>
-
-                          <Typography variant="subtitle2" gutterBottom>
-                            关键词
-                          </Typography>
-                          <Box sx={{ mb: 2 }}>
-                            {result.keywords.map((keyword, kidx) => (
-                              <Chip
-                                key={kidx}
-                                label={keyword}
-                                size="small"
-                                sx={{ mr: 0.5, mb: 0.5 }}
-                                variant="outlined"
-                              />
-                            ))}
-                          </Box>
-
-                          <Typography variant="subtitle2" gutterBottom>
-                            建议
-                          </Typography>
-                          <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                            {result.suggestions.map((suggestion, sidx) => (
-                              <Typography component="li" variant="body2" key={sidx} sx={{ mb: 0.5 }}>
-                                {suggestion}
-                              </Typography>
-                            ))}
-                          </Box>
-                        </CardContent>
-
-                        <CardActions>
-                          <Chip
-                            label={`置信度: ${(result.confidence * 100).toFixed(0)}%`}
-                            size="small"
-                            color={result.confidence > 0.8 ? 'success' : 'default'}
-                          />
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Paper>
+            {results.creative_thinking && (
+              <Grid item xs={12} md={4}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" color="primary" gutterBottom>
+                      <EmojiObjects sx={{ mr: 1 }} />
+                      创造思维
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      分数: {(results.creative_thinking.score * 100).toFixed(1)}%
+                    </Typography>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>创新点:</Typography>
+                    <List dense>
+                      {results.creative_thinking.innovations.map((innovation, index) => (
+                        <ListItem key={index} sx={{ py: 0.5 }}>
+                          <ListItemIcon>
+                            <AutoAwesome color="primary" />
+                          </ListItemIcon>
+                          <ListItemText primary={innovation} primaryTypographyProps={{ variant: 'body2' }} />
+                        </ListItem>
+                      ))}
+                    </List>
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 2 }}>可能性:</Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {results.creative_thinking.possibilities.map((possibility, index) => (
+                        <Chip key={index} label={possibility} size="small" variant="outlined" sx={{ mr: 0.5, mb: 0.5 }} />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
             )}
           </Grid>
 
-          {/* 侧边栏 */}
-          <Grid item xs={12} md={4}>
-            {/* 高级设置 */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Settings /> 分析设置
-              </Typography>
+          {/* 洞察建议 */}
+          {thinking_summary.insights && thinking_summary.insights.length > 0 && (
+            <Card sx={{ mt: 3 }}>
+              <CardContent>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  <Lightbulb sx={{ mr: 1 }} />
+                  洞察建议
+                </Typography>
+                <List>
+                  {thinking_summary.insights.map((insight, index) => (
+                    <ListItem key={index}>
+                      <ListItemIcon>
+                        <Typography variant="body2" color="primary">💡</Typography>
+                      </ListItemIcon>
+                      <ListItemText primary={insight} />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+            </Card>
+          )}
+        </Paper>
+      </Fade>
+    );
+  };
 
-              <Typography variant="body2" gutterBottom>
-                分析深度
-              </Typography>
-              <Slider
-                value={analysisDepth}
-                onChange={(_, value) => setAnalysisDepth(value as number)}
-                min={10}
-                max={100}
-                marks={[
-                  { value: 25, label: '快速' },
-                  { value: 50, label: '标准' },
-                  { value: 75, label: '深度' },
-                  { value: 100, label: '专业' }
-                ]}
-                sx={{ mb: 3 }}
+  const renderHistoryItem = (item: any) => (
+    <Card 
+      key={item.id} 
+      sx={{ 
+        mb: 2, 
+        cursor: 'pointer',
+        '&:hover': { 
+          boxShadow: 3,
+          transform: 'translateY(-2px)',
+          transition: 'all 0.2s'
+        }
+      }}
+      onClick={() => handleHistoryItemClick(item)}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body1" noWrap sx={{ mb: 1 }}>
+              {item.input_text}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Chip 
+                label={item.thinking_summary.dominant_thinking_style} 
+                size="small" 
+                color="primary"
               />
+              <Chip 
+                label={`${(item.thinking_summary.balance_index * 100).toFixed(1)}%`} 
+                size="small" 
+                variant="outlined"
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {new Date(item.created_at).toLocaleDateString('zh-CN')}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleFavorite(item.id, item.is_favorited);
+              }}
+            >
+              {item.is_favorited ? <Favorite color="error" /> : <FavoriteBorder />}
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={(e) => handleMenuClick(e, item)}
+            >
+              <MoreVert />
+            </IconButton>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
 
-              <Alert severity="info" sx={{ mb: 2 }}>
-                <Typography variant="caption">
-                  💡 分析深度越高，结果越详细，但耗时会增加
-                </Typography>
-              </Alert>
-            </Paper>
+  if (!isLoggedIn) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert severity="warning">
+          请先登录以使用思维分析功能。
+          <Button onClick={() => navigate('/login')} sx={{ ml: 2 }}>
+            去登录
+          </Button>
+        </Alert>
+      </Container>
+    );
+  }
 
-            {/* 分析历史 */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <History /> 分析历史
+  return (
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+        <Psychology sx={{ mr: 2, color: 'primary.main' }} />
+        思维分析
+      </Typography>
+
+      {/* 标签页 */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={currentTab} onChange={handleTabChange} aria-label="思维分析标签">
+          <Tab label="开始分析" />
+          <Tab label="历史记录" />
+          <Tab label="统计趋势" />
+        </Tabs>
+      </Paper>
+
+      {/* 分析页面 */}
+      <TabPanel value={currentTab} index={0}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            请输入您想要分析的思维内容
+          </Typography>
+          
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="请描述您的想法、问题或思考过程..."
+            sx={{ mb: 3 }}
+          />
+
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Button
+              variant={analysisType === 'comprehensive' ? 'contained' : 'outlined'}
+              onClick={() => setAnalysisType('comprehensive')}
+            >
+              综合分析
+            </Button>
+            <Button
+              variant={analysisType === 'visual' ? 'contained' : 'outlined'}
+              onClick={() => setAnalysisType('visual')}
+            >
+              形象思维
+            </Button>
+            <Button
+              variant={analysisType === 'logical' ? 'contained' : 'outlined'}
+              onClick={() => setAnalysisType('logical')}
+            >
+              逻辑思维
+            </Button>
+            <Button
+              variant={analysisType === 'creative' ? 'contained' : 'outlined'}
+              onClick={() => setAnalysisType('creative')}
+            >
+              创造思维
+            </Button>
+          </Box>
+
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handleAnalyze}
+            disabled={isLoading || !inputText.trim()}
+            startIcon={isLoading ? <CircularProgress size={20} /> : <Send />}
+          >
+            {isLoading ? '分析中...' : '开始分析'}
+          </Button>
+
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {renderAnalysisResult()}
+        </Paper>
+      </TabPanel>
+
+      {/* 历史记录页面 */}
+      <TabPanel value={currentTab} index={1}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            分析历史记录
+          </Typography>
+          
+          {historyLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : analysisHistory.length === 0 ? (
+            <Alert severity="info">
+              还没有分析记录。开始您的第一次思维分析吧！
+            </Alert>
+          ) : (
+            <Box>
+              {analysisHistory.map(renderHistoryItem)}
+            </Box>
+          )}
+        </Paper>
+      </TabPanel>
+
+      {/* 统计趋势页面 */}
+      <TabPanel value={currentTab} index={2}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            思维发展趋势
+          </Typography>
+          <Alert severity="info">
+            统计功能正在开发中，敬请期待...
+          </Alert>
+        </Paper>
+      </TabPanel>
+
+      {/* 历史详情对话框 */}
+      <Dialog
+        open={showHistoryDialog}
+        onClose={() => setShowHistoryDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>分析详情</DialogTitle>
+        <DialogContent>
+          {selectedHistory && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                分析内容:
               </Typography>
-
-              {analysisHistory.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  暂无分析历史
-                </Typography>
-              ) : (
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                {selectedHistory.input_text}
+              </Typography>
+              
+              <Typography variant="subtitle1" gutterBottom>
+                分析结果:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Chip 
+                  label={`主导风格: ${selectedHistory.thinking_summary.dominant_thinking_style}`} 
+                  color="primary"
+                />
+                <Chip 
+                  label={`平衡指数: ${(selectedHistory.thinking_summary.balance_index * 100).toFixed(1)}%`} 
+                  variant="outlined"
+                />
+              </Box>
+              
+              {selectedHistory.thinking_summary.thinking_scores && (
                 <Box>
-                  {analysisHistory.slice(0, 5).map((history, index) => (
-                    <Box key={history.id} sx={{ mb: 2, pb: 2, borderBottom: index < 4 ? 1 : 0, borderColor: 'divider' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                        {history.input.substring(0, 50)}...
-                      </Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {history.timestamp.toLocaleDateString()}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          {history.results.map((result, ridx) => (
-                            <Chip
-                              key={ridx}
-                              label={result.score.toFixed(0)}
-                              size="small"
-                              sx={{
-                                backgroundColor: getThinkingTypeColor(result.type),
-                                color: 'white',
-                                fontSize: '10px',
-                                height: 20
-                              }}
-                            />
-                          ))}
-                        </Box>
+                  <Typography variant="subtitle1" gutterBottom>
+                    思维分数:
+                  </Typography>
+                  {Object.entries(selectedHistory.thinking_summary.thinking_scores).map(([style, score]) => (
+                    <Box key={style} sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="body2">{style}</Typography>
+                        <Typography variant="body2">{((score as number) * 100).toFixed(1)}%</Typography>
                       </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(score as number) * 100}
+                        sx={{ height: 6, borderRadius: 3 }}
+                      />
                     </Box>
                   ))}
-                  
-                  {analysisHistory.length > 5 && (
-                    <Button
-                      size="small"
-                      fullWidth
-                      variant="outlined"
-                      onClick={() => info('查看完整历史功能开发中...')}
-                    >
-                      查看全部 ({analysisHistory.length})
-                    </Button>
-                  )}
                 </Box>
               )}
-            </Paper>
-          </Grid>
-        </Grid>
-      </Box>
-    </LoadingOverlay>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowHistoryDialog(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 菜单 */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          if (selectedHistory) {
+            handleToggleFavorite(selectedHistory.id, selectedHistory.is_favorited);
+          }
+        }}>
+          <ListItemIcon>
+            {selectedHistory?.is_favorited ? <Favorite /> : <FavoriteBorder />}
+          </ListItemIcon>
+          <ListItemText>
+            {selectedHistory?.is_favorited ? '取消收藏' : '收藏'}
+          </ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          // TODO: 实现分享功能
+        }}>
+          <ListItemIcon>
+            <Share />
+          </ListItemIcon>
+          <ListItemText>分享</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          // TODO: 实现导出功能
+        }}>
+          <ListItemIcon>
+            <Download />
+          </ListItemIcon>
+          <ListItemText>导出</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          if (selectedHistory) {
+            handleDeleteAnalysis(selectedHistory.id);
+          }
+        }}>
+          <ListItemIcon>
+            <Delete />
+          </ListItemIcon>
+          <ListItemText>删除</ListItemText>
+        </MenuItem>
+      </Menu>
+    </Container>
   );
 };
 

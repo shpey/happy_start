@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import { Provider } from 'react-redux';
+import { AuthProvider } from './contexts/AuthContext';
+import { store } from './store';
+import { theme } from './theme';
 import App from './App';
-import { NotificationProvider } from './components/common/NotificationProvider';
-import { CustomThemeProvider } from './contexts/ThemeContext';
-import ErrorBoundary from './components/common/ErrorBoundary';
 import './index.css';
 
 const root = ReactDOM.createRoot(
@@ -13,14 +16,15 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <ErrorBoundary>
+    <Provider store={store}>
       <BrowserRouter>
-        <CustomThemeProvider>
-          <NotificationProvider>
+        <ThemeProvider theme={theme}>
+          <AuthProvider>
+            <CssBaseline />
             <App />
-          </NotificationProvider>
-        </CustomThemeProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
-    </ErrorBoundary>
+    </Provider>
   </React.StrictMode>
 ); 

@@ -9,10 +9,15 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from PIL import Image
 from loguru import logger
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 from ....core.database import get_db
-from ....core.redis_client import cache_manager
-from ....ai_models.model_manager import ModelManager
+from ....core.security import get_current_active_user
+from ....models.user import User
+from ....models.thinking_analysis import ThinkingAnalysis
+from ....services.thinking_service import ThinkingAnalysisService
+from ....services.user_service import UserService
 
 router = APIRouter()
 
@@ -38,7 +43,8 @@ class ThinkingAnalysisResponse(BaseModel):
 @router.post("/analyze", response_model=ThinkingAnalysisResponse)
 async def analyze_thinking_pattern(
     request: ThinkingAnalysisRequest,
-    model_manager: ModelManager = Depends(lambda: None)  # 需要从应用状态获取
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> ThinkingAnalysisResponse:
     """
     分析思维模式
@@ -49,40 +55,41 @@ async def analyze_thinking_pattern(
     - 创造思维：生成和创新
     """
     try:
-        # 从FastAPI应用状态获取模型管理器
-        from fastapi import Request
-        
         if not request.text:
             raise HTTPException(status_code=400, detail="需要提供分析文本")
         
-        # 构建输入数据
-        input_data = {"text": request.text}
+        # 获取思维分析服务
+        thinking_service = ThinkingAnalysisService()
+        user_service = UserService(db)
         
-        # 缓存键
-        cache_key = f"thinking_analysis:{hash(request.text)}"
+        # 执行思维分析
+        analysis_results = await thinking_service.analyze_thinking(
+            text=request.text,
+            analysis_type=request.analysis_type,
+            user_id=current_user["user_id"]
+        )
         
-        # 检查缓存
-        cached_result = await cache_manager.get(cache_key)
-        if cached_result and not request.save_result:
-            return ThinkingAnalysisResponse(
-                success=True,
-                results=cached_result["results"],
-                thinking_summary=cached_result["thinking_summary"],
-                timestamp=cached_result["timestamp"]
-            )
-        
-        # 执行思维分析（这里需要从应用状态获取模型管理器）
-        # 暂时返回模拟结果，实际实现时需要集成真实的模型
-        analysis_results = await _simulate_thinking_analysis(input_data)
-        
-        # 缓存结果
-        await cache_manager.set(cache_key, analysis_results, ttl=3600)
-        
-        # 保存到数据库（如果需要）
+        # 保存分析结果到数据库
         analysis_id = None
-        if request.save_result and request.user_id:
-            analysis_id = await _save_analysis_result(
-                request.user_id, 
+        if request.save_result:
+            analysis_record = ThinkingAnalysis(
+                user_id=current_user["user_id"],
+                input_text=request.text,
+                analysis_type=request.analysis_type,
+                results=analysis_results["individual_analyses"],
+                thinking_summary=analysis_results["thinking_summary"],
+                processing_time=analysis_results.get("processing_time", 0),
+                confidence_score=analysis_results.get("confidence_score", 85)
+            )
+            
+            db.add(analysis_record)
+            db.commit()
+            db.refresh(analysis_record)
+            analysis_id = str(analysis_record.id)
+            
+            # 更新用户思维统计
+            await user_service.update_thinking_stats(
+                current_user["user_id"], 
                 analysis_results
             )
         
@@ -109,7 +116,9 @@ async def analyze_thinking_pattern(
 async def analyze_image_thinking(
     file: UploadFile = File(...),
     user_id: Optional[str] = Form(None),
-    save_result: bool = Form(True)
+    save_result: bool = Form(True),
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     分析图像的思维内容
@@ -125,12 +134,34 @@ async def analyze_image_thinking(
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
         
-        # 执行形象思维分析
-        visual_analysis = await _simulate_visual_analysis(image)
+        # 获取思维分析服务
+        thinking_service = ThinkingAnalysisService()
         
-        # 缓存结果
-        cache_key = f"visual_analysis:{hash(image_data)}"
-        await cache_manager.set(cache_key, visual_analysis, ttl=3600)
+        # 执行形象思维分析
+        visual_analysis = await thinking_service.analyze_image_thinking(
+            image=image,
+            user_id=current_user["user_id"]
+        )
+        
+        # 保存分析结果
+        if save_result:
+            analysis_record = ThinkingAnalysis(
+                user_id=current_user["user_id"],
+                input_text=f"图像分析: {file.filename}",
+                analysis_type="visual",
+                results={"visual_thinking": visual_analysis},
+                thinking_summary={
+                    "dominant_thinking_style": "形象思维",
+                    "thinking_scores": {"形象思维": visual_analysis.get("score", 0.8)},
+                    "balance_index": visual_analysis.get("score", 0.8),
+                    "insights": visual_analysis.get("insights", [])
+                },
+                processing_time=visual_analysis.get("processing_time", 1000),
+                confidence_score=int(visual_analysis.get("confidence", 0.8) * 100)
+            )
+            
+            db.add(analysis_record)
+            db.commit()
         
         return {
             "success": True,
@@ -153,7 +184,8 @@ async def generate_creative_ideas(
     prompt: str = Form(...),
     num_ideas: int = Form(3),
     creativity_level: float = Form(0.8),
-    user_id: Optional[str] = Form(None)
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     生成创意想法
@@ -164,24 +196,22 @@ async def generate_creative_ideas(
         if not prompt.strip():
             raise HTTPException(status_code=400, detail="创意提示不能为空")
         
-        # 执行创造思维分析
-        creative_analysis = await _simulate_creative_generation(
-            prompt, num_ideas, creativity_level
-        )
+        # 获取思维分析服务
+        thinking_service = ThinkingAnalysisService()
         
-        # 缓存结果
-        cache_key = f"creative_ideas:{hash(prompt)}:{num_ideas}"
-        await cache_manager.set(cache_key, creative_analysis, ttl=1800)
+        # 执行创造思维分析
+        creative_analysis = await thinking_service.generate_creative_ideas(
+            prompt=prompt,
+            num_ideas=num_ideas,
+            creativity_level=creativity_level,
+            user_id=current_user["user_id"]
+        )
         
         return {
             "success": True,
             "prompt": prompt,
             "generated_ideas": creative_analysis["generated_ideas"],
-            "creativity_metrics": {
-                "average_creativity_score": creative_analysis["creativity_level"],
-                "idea_diversity": len(creative_analysis["generated_ideas"]),
-                "novelty_index": sum(idea["novelty"] for idea in creative_analysis["generated_ideas"]) / len(creative_analysis["generated_ideas"])
-            }
+            "creativity_metrics": creative_analysis["creativity_metrics"]
         }
         
     except Exception as e:
@@ -194,246 +224,207 @@ async def get_analysis_history(
     user_id: str,
     limit: int = 20,
     offset: int = 0,
-    analysis_type: Optional[str] = None
+    analysis_type: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """获取用户的思维分析历史"""
     try:
-        # 从数据库获取历史记录
-        history = await _get_user_analysis_history(
-            user_id, limit, offset, analysis_type
+        # 检查权限 - 只能查看自己的历史
+        if int(user_id) != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权访问他人的分析历史")
+        
+        query = db.query(ThinkingAnalysis).filter(
+            ThinkingAnalysis.user_id == int(user_id)
         )
+        
+        if analysis_type:
+            query = query.filter(ThinkingAnalysis.analysis_type == analysis_type)
+        
+        total_count = query.count()
+        
+        analyses = query.order_by(
+            ThinkingAnalysis.created_at.desc()
+        ).offset(offset).limit(limit).all()
         
         return {
             "success": True,
-            "user_id": user_id,
-            "total_count": len(history),
-            "analyses": history,
+            "history": [analysis.to_dict() for analysis in analyses],
+            "total_count": total_count,
             "pagination": {
                 "limit": limit,
                 "offset": offset,
-                "has_more": len(history) == limit
+                "has_more": offset + limit < total_count
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取分析历史失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取历史失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取分析历史失败")
 
 
 @router.get("/statistics/{user_id}")
-async def get_thinking_statistics(user_id: str) -> Dict[str, Any]:
-    """获取用户思维模式统计"""
+async def get_thinking_statistics(
+    user_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """获取用户思维统计信息"""
     try:
-        stats = await _calculate_thinking_statistics(user_id)
+        # 检查权限
+        if int(user_id) != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权访问他人的统计信息")
+        
+        user_service = UserService(db)
+        user_stats = await user_service.get_user_stats(int(user_id))
+        
+        # 获取分析记录统计
+        analyses = db.query(ThinkingAnalysis).filter(
+            ThinkingAnalysis.user_id == int(user_id)
+        ).all()
+        
+        # 计算统计信息
+        total_analyses = len(analyses)
+        favorite_count = sum(1 for a in analyses if a.is_favorited)
+        
+        # 分析类型分布
+        type_distribution = {}
+        style_scores = {}
+        
+        for analysis in analyses:
+            # 分析类型统计
+            analysis_type = analysis.analysis_type
+            type_distribution[analysis_type] = type_distribution.get(analysis_type, 0) + 1
+            
+            # 思维风格分数统计
+            if analysis.thinking_summary and "thinking_scores" in analysis.thinking_summary:
+                scores = analysis.thinking_summary["thinking_scores"]
+                for style, score in scores.items():
+                    if style not in style_scores:
+                        style_scores[style] = []
+                    style_scores[style].append(score)
+        
+        # 计算平均分数
+        average_scores = {}
+        for style, scores in style_scores.items():
+            average_scores[style] = sum(scores) / len(scores) if scores else 0
+        
+        # 确定主导思维风格
+        dominant_style = max(average_scores, key=average_scores.get) if average_scores else None
+        
+        statistics = {
+            "total_analyses": total_analyses,
+            "recent_analyses": len([a for a in analyses if (datetime.now() - a.created_at).days <= 30]),
+            "favorite_count": favorite_count,
+            "dominant_style": dominant_style,
+            "average_scores": average_scores,
+            "type_distribution": type_distribution,
+            "improvement_trend": "stable"  # 这里可以添加更复杂的趋势分析
+        }
         
         return {
             "success": True,
-            "user_id": user_id,
-            "statistics": stats,
-            "insights": _generate_thinking_insights(stats)
+            "statistics": statistics
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取思维统计失败: {e}")
-        raise HTTPException(status_code=500, detail=f"统计计算失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取思维统计失败")
 
 
-# 辅助函数
-
-async def _simulate_thinking_analysis(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """模拟思维分析（实际实现时需要集成真实AI模型）"""
-    import random
-    import time
-    
-    # 模拟逻辑思维分析
-    logical_analysis = {
-        "analysis_type": "logical_thinking",
-        "logical_patterns": ["因果推理", "演绎推理"],
-        "reasoning_strength": round(random.uniform(0.6, 0.9), 2),
-        "coherence_score": round(random.uniform(0.7, 1.0), 2),
-        "argument_structure": {
-            "has_premise": True,
-            "has_evidence": True,
-            "has_conclusion": True,
-            "argument_type": "演绎论证"
-        },
-        "thinking_style": "逻辑思维"
-    }
-    
-    # 模拟创造思维分析
-    creative_analysis = {
-        "analysis_type": "creative_thinking",
-        "generated_ideas": [
-            {
-                "idea": "结合AI和人类直觉的混合思维系统",
-                "creativity_score": round(random.uniform(0.7, 0.9), 2),
-                "novelty": round(random.uniform(0.6, 0.8), 2)
-            },
-            {
-                "idea": "基于情感的智能决策框架",
-                "creativity_score": round(random.uniform(0.6, 0.8), 2),
-                "novelty": round(random.uniform(0.7, 0.9), 2)
-            }
-        ],
-        "creativity_level": round(random.uniform(0.6, 0.8), 2),
-        "thinking_style": "创造思维"
-    }
-    
-    # 综合分析
-    thinking_scores = {
-        "逻辑思维": logical_analysis["reasoning_strength"],
-        "创造思维": creative_analysis["creativity_level"]
-    }
-    
-    dominant_style = max(thinking_scores, key=thinking_scores.get)
-    
-    return {
-        "individual_analyses": {
-            "logical_thinking": logical_analysis,
-            "creative_thinking": creative_analysis
-        },
-        "thinking_summary": {
-            "dominant_thinking_style": dominant_style,
-            "thinking_scores": thinking_scores,
-            "balance_index": round(1 - abs(thinking_scores["逻辑思维"] - thinking_scores["创造思维"]), 2),
-            "thinking_complexity": 2
-        },
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-    }
-
-
-async def _simulate_visual_analysis(image: Image.Image) -> Dict[str, Any]:
-    """模拟视觉思维分析"""
-    import random
-    
-    concepts = [
-        "创新思维", "逻辑推理", "抽象概念", "具体实物",
-        "情感表达", "空间关系", "时间概念", "因果关系"
-    ]
-    
-    concept_scores = {concept: round(random.uniform(0.1, 0.9), 2) for concept in concepts}
-    dominant_concept = max(concept_scores, key=concept_scores.get)
-    
-    return {
-        "analysis_type": "visual_thinking",
-        "dominant_concept": dominant_concept,
-        "confidence": concept_scores[dominant_concept],
-        "concept_scores": concept_scores,
-        "thinking_style": "形象思维" if concept_scores[dominant_concept] > 0.5 else "混合思维",
-        "image_features": {
-            "complexity": round(random.uniform(0.3, 0.8), 2),
-            "color_dominance": random.choice(["warm", "cool", "neutral"]),
-            "composition": random.choice(["balanced", "dynamic", "static"])
-        }
-    }
-
-
-async def _simulate_creative_generation(
-    prompt: str, 
-    num_ideas: int, 
-    creativity_level: float
+@router.get("/analysis/{analysis_id}")
+async def get_analysis_detail(
+    analysis_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    """模拟创意生成"""
-    import random
-    
-    base_ideas = [
-        "智能思维增强系统",
-        "多维度认知空间设计",
-        "情感计算与决策融合",
-        "生物启发的学习算法",
-        "跨模态知识表示",
-        "分布式智能协作网络"
-    ]
-    
-    ideas = []
-    for i in range(num_ideas):
-        base_idea = random.choice(base_ideas)
-        idea_text = f"{base_idea} - 基于'{prompt}'的创新应用"
+    """获取分析结果详情"""
+    try:
+        analysis = db.query(ThinkingAnalysis).filter(
+            ThinkingAnalysis.id == int(analysis_id)
+        ).first()
         
-        ideas.append({
-            "idea": idea_text,
-            "creativity_score": round(random.uniform(0.5, creativity_level), 2),
-            "novelty": round(random.uniform(0.4, 0.9), 2),
-            "feasibility": round(random.uniform(0.6, 0.9), 2)
-        })
-    
-    return {
-        "analysis_type": "creative_thinking",
-        "generated_ideas": ideas,
-        "creativity_level": round(sum(idea["creativity_score"] for idea in ideas) / len(ideas), 2),
-        "thinking_style": "创造思维"
-    }
+        if not analysis:
+            raise HTTPException(status_code=404, detail="分析记录不存在")
+        
+        # 检查权限
+        if analysis.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权访问此分析记录")
+        
+        return {
+            "success": True,
+            "analysis": analysis.to_dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取分析详情失败: {e}")
+        raise HTTPException(status_code=500, detail="获取分析详情失败")
 
 
-async def _save_analysis_result(user_id: str, analysis_results: Dict[str, Any]) -> str:
-    """保存分析结果到数据库"""
-    import uuid
-    
-    analysis_id = str(uuid.uuid4())
-    
-    # TODO: 实际实现数据库保存逻辑
-    logger.info(f"保存分析结果 {analysis_id} for user {user_id}")
-    
-    return analysis_id
+@router.put("/analysis/{analysis_id}/favorite")
+async def toggle_analysis_favorite(
+    analysis_id: str,
+    request: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """收藏/取消收藏分析结果"""
+    try:
+        analysis = db.query(ThinkingAnalysis).filter(
+            ThinkingAnalysis.id == int(analysis_id)
+        ).first()
+        
+        if not analysis:
+            raise HTTPException(status_code=404, detail="分析记录不存在")
+        
+        # 检查权限
+        if analysis.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权修改此分析记录")
+        
+        analysis.is_favorited = request.get("is_favorited", False)
+        db.commit()
+        
+        return {"success": True, "message": "收藏状态更新成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新收藏状态失败: {e}")
+        raise HTTPException(status_code=500, detail="更新收藏状态失败")
 
 
-async def _get_user_analysis_history(
-    user_id: str, 
-    limit: int, 
-    offset: int, 
-    analysis_type: Optional[str]
-) -> List[Dict[str, Any]]:
-    """获取用户分析历史"""
-    # TODO: 实际实现数据库查询逻辑
-    import random
-    import time
-    
-    # 模拟历史数据
-    history = []
-    for i in range(limit):
-        history.append({
-            "analysis_id": f"analysis_{i + offset}",
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "analysis_type": random.choice(["comprehensive", "visual", "logical", "creative"]),
-            "dominant_thinking_style": random.choice(["逻辑思维", "创造思维", "形象思维", "平衡思维"]),
-            "summary": "思维分析结果摘要"
-        })
-    
-    return history
-
-
-async def _calculate_thinking_statistics(user_id: str) -> Dict[str, Any]:
-    """计算思维统计数据"""
-    import random
-    
-    return {
-        "total_analyses": random.randint(10, 50),
-        "thinking_style_distribution": {
-            "逻辑思维": round(random.uniform(0.2, 0.4), 2),
-            "创造思维": round(random.uniform(0.2, 0.4), 2),
-            "形象思维": round(random.uniform(0.1, 0.3), 2),
-            "平衡思维": round(random.uniform(0.1, 0.3), 2)
-        },
-        "average_scores": {
-            "reasoning_strength": round(random.uniform(0.6, 0.9), 2),
-            "creativity_level": round(random.uniform(0.5, 0.8), 2),
-            "visual_understanding": round(random.uniform(0.6, 0.8), 2)
-        },
-        "improvement_trend": random.choice(["improving", "stable", "declining"])
-    }
-
-
-def _generate_thinking_insights(stats: Dict[str, Any]) -> List[str]:
-    """生成思维洞察"""
-    insights = []
-    
-    dominant_style = max(stats["thinking_style_distribution"], key=stats["thinking_style_distribution"].get)
-    insights.append(f"您的主导思维风格是{dominant_style}")
-    
-    if stats["average_scores"]["creativity_level"] > 0.7:
-        insights.append("您展现出很强的创造力潜质")
-    
-    if stats["average_scores"]["reasoning_strength"] > 0.8:
-        insights.append("您的逻辑推理能力非常出色")
-    
-    return insights 
+@router.delete("/analysis/{analysis_id}")
+async def delete_analysis(
+    analysis_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """删除分析记录"""
+    try:
+        analysis = db.query(ThinkingAnalysis).filter(
+            ThinkingAnalysis.id == int(analysis_id)
+        ).first()
+        
+        if not analysis:
+            raise HTTPException(status_code=404, detail="分析记录不存在")
+        
+        # 检查权限
+        if analysis.user_id != current_user["user_id"]:
+            raise HTTPException(status_code=403, detail="无权删除此分析记录")
+        
+        db.delete(analysis)
+        db.commit()
+        
+        return {"success": True, "message": "分析记录删除成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除分析记录失败: {e}")
+        raise HTTPException(status_code=500, detail="删除分析记录失败") 

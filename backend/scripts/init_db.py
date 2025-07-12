@@ -1,297 +1,350 @@
 #!/usr/bin/env python3
 """
 数据库初始化脚本
-创建表结构并插入初始数据
 """
 
-import asyncio
-import sys
 import os
+import sys
+import asyncio
 from pathlib import Path
 
 # 添加项目根目录到Python路径
 sys.path.append(str(Path(__file__).parent.parent))
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 from loguru import logger
 
 from app.core.config import settings
-from app.core.database import Base
-from app.models import *  # 导入所有模型
-from app.services.user_service import user_service
+from app.core.database import Base, get_db_url
+from app.core.security import security_manager
+from app.models.user import User
+from app.models.thinking_analysis import ThinkingAnalysis
+from app.models.collaboration import CollaborationSession, UserSession
 
 
-async def create_tables():
+def create_database():
     """创建数据库表"""
     try:
-        logger.info("开始创建数据库表...")
+        # 创建数据库引擎
+        engine = create_engine(get_db_url(), echo=True)
         
-        # 创建异步引擎
-        engine = create_async_engine(
-            settings.DATABASE_URL,
-            echo=True,
-            future=True
-        )
+        # 删除所有表（仅在开发环境）
+        if settings.ENVIRONMENT == "development":
+            logger.warning("开发环境：删除所有现有表")
+            Base.metadata.drop_all(bind=engine)
         
         # 创建所有表
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        logger.info("创建数据库表...")
+        Base.metadata.create_all(bind=engine)
         
         logger.info("✅ 数据库表创建成功")
         return engine
         
     except Exception as e:
-        logger.error(f"❌ 创建数据库表失败: {e}")
+        logger.error(f"❌ 数据库表创建失败: {e}")
         raise
 
 
-async def create_initial_data(engine):
-    """创建初始数据"""
+def create_seed_data(engine):
+    """创建种子数据"""
     try:
-        logger.info("开始创建初始数据...")
+        # 创建会话
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
         
-        # 创建异步会话
-        AsyncSessionLocal = sessionmaker(
-            engine, class_=AsyncSession, expire_on_commit=False
+        # 创建管理员用户
+        admin_user = User(
+            username="admin",
+            email="admin@example.com",
+            hashed_password=security_manager.hash_password("Admin123!"),
+            full_name="系统管理员",
+            bio="智能思维分析平台管理员",
+            is_active=True,
+            is_verified=True,
+            is_premium=True,
+            thinking_stats={
+                "total_analyses": 0,
+                "dominant_style": None,
+                "average_scores": {},
+                "improvement_trend": "stable"
+            }
         )
         
-        async with AsyncSessionLocal() as session:
-            # 创建管理员用户
-            admin_user = await user_service.create_user(
-                db=session,
-                username="admin",
-                email="admin@intelligentthinking.com",
-                password="admin123",
-                full_name="系统管理员"
-            )
-            
-            if admin_user:
-                # 设置为高级用户
-                admin_user.is_premium = True
-                admin_user.is_verified = True
-                await session.commit()
-                logger.info(f"✅ 创建管理员用户成功: {admin_user.username}")
-            
-            # 创建示例用户
-            demo_users = [
-                {
-                    "username": "demo_user",
-                    "email": "demo@example.com",
-                    "password": "demo123",
-                    "full_name": "演示用户"
+        # 创建测试用户
+        test_user = User(
+            username="testuser",
+            email="test@example.com",
+            hashed_password=security_manager.hash_password("Test123!"),
+            full_name="测试用户",
+            bio="这是一个测试用户账户",
+            is_active=True,
+            is_verified=True,
+            is_premium=False,
+            thinking_stats={
+                "total_analyses": 5,
+                "dominant_style": "逻辑思维",
+                "average_scores": {
+                    "逻辑思维": 0.85,
+                    "创造思维": 0.72,
+                    "形象思维": 0.68
                 },
-                {
-                    "username": "test_visual",
-                    "email": "visual@example.com", 
-                    "password": "test123",
-                    "full_name": "视觉思维测试用户"
+                "improvement_trend": "improving"
+            }
+        )
+        
+        # 创建演示用户
+        demo_user = User(
+            username="demouser",
+            email="demo@example.com",
+            hashed_password=security_manager.hash_password("Demo123!"),
+            full_name="演示用户",
+            bio="用于演示的用户账户",
+            is_active=True,
+            is_verified=False,
+            is_premium=False,
+            thinking_stats={
+                "total_analyses": 12,
+                "dominant_style": "创造思维",
+                "average_scores": {
+                    "创造思维": 0.88,
+                    "形象思维": 0.75,
+                    "逻辑思维": 0.69
                 },
-                {
-                    "username": "test_logical",
-                    "email": "logical@example.com",
-                    "password": "test123", 
-                    "full_name": "逻辑思维测试用户"
-                },
-                {
-                    "username": "test_creative",
-                    "email": "creative@example.com",
-                    "password": "test123",
-                    "full_name": "创造思维测试用户"
-                }
-            ]
-            
-            for user_data in demo_users:
-                try:
-                    demo_user = await user_service.create_user(
-                        db=session,
-                        **user_data
-                    )
-                    if demo_user:
-                        logger.info(f"✅ 创建演示用户成功: {demo_user.username}")
-                except Exception as e:
-                    logger.warning(f"⚠️ 创建用户失败 {user_data['username']}: {e}")
-            
-            # 创建示例协作会话
-            from app.models.collaboration import CollaborationSession, RoomStatus
-            
-            demo_sessions = [
-                {
-                    "room_id": "demo_room_001",
-                    "name": "思维探索演示房间",
-                    "description": "这是一个用于演示三层思维模型的协作空间",
-                    "creator_id": admin_user.id if admin_user else 1,
-                    "is_public": True,
-                    "max_users": 10,
-                    "status": RoomStatus.ACTIVE
-                },
-                {
-                    "room_id": "creative_lab_001", 
-                    "name": "创意实验室",
-                    "description": "专注于创造思维训练的协作空间",
-                    "creator_id": admin_user.id if admin_user else 1,
-                    "is_public": True,
-                    "max_users": 8,
-                    "status": RoomStatus.ACTIVE
-                },
-                {
-                    "room_id": "logic_gym_001",
-                    "name": "逻辑健身房", 
-                    "description": "逻辑思维训练和推理练习空间",
-                    "creator_id": admin_user.id if admin_user else 1,
-                    "is_public": True,
-                    "max_users": 6,
-                    "status": RoomStatus.ACTIVE
-                }
-            ]
-            
-            for session_data in demo_sessions:
-                try:
-                    demo_session = CollaborationSession(**session_data)
-                    session.add(demo_session)
-                    await session.commit()
-                    await session.refresh(demo_session)
-                    logger.info(f"✅ 创建协作会话成功: {demo_session.name}")
-                except Exception as e:
-                    logger.warning(f"⚠️ 创建协作会话失败: {e}")
-                    await session.rollback()
-            
-        logger.info("✅ 初始数据创建完成")
+                "improvement_trend": "stable"
+            }
+        )
+        
+        # 添加用户到数据库
+        session.add(admin_user)
+        session.add(test_user)
+        session.add(demo_user)
+        session.commit()
+        
+        logger.info("✅ 种子数据创建成功")
+        logger.info("管理员账户: admin / Admin123!")
+        logger.info("测试账户: testuser / Test123!")
+        logger.info("演示账户: demouser / Demo123!")
+        
+        session.close()
         
     except Exception as e:
-        logger.error(f"❌ 创建初始数据失败: {e}")
+        logger.error(f"❌ 种子数据创建失败: {e}")
+        if 'session' in locals():
+            session.rollback()
+            session.close()
         raise
 
 
-async def verify_database():
-    """验证数据库连接和表结构"""
+def create_demo_thinking_analyses(engine):
+    """创建演示思维分析数据"""
     try:
-        logger.info("开始验证数据库...")
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
         
-        engine = create_async_engine(settings.DATABASE_URL)
+        # 获取测试用户
+        test_user = session.query(User).filter(User.username == "testuser").first()
+        demo_user = session.query(User).filter(User.username == "demouser").first()
         
-        async with engine.begin() as conn:
-            # 检查表是否存在
-            tables_query = text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-                ORDER BY table_name;
-            """)
-            
-            result = await conn.execute(tables_query)
-            tables = [row[0] for row in result.fetchall()]
-            
-            logger.info(f"✅ 数据库验证成功，共找到 {len(tables)} 个表:")
-            for table in tables:
-                logger.info(f"  - {table}")
-            
-            # 检查用户数量
-            user_count_query = text("SELECT COUNT(*) FROM users;")
-            result = await conn.execute(user_count_query)
-            user_count = result.scalar()
-            logger.info(f"✅ 用户表中有 {user_count} 个用户")
-            
-            # 检查协作会话数量
-            session_count_query = text("SELECT COUNT(*) FROM collaboration_sessions;")
-            result = await conn.execute(session_count_query)
-            session_count = result.scalar()
-            logger.info(f"✅ 协作会话表中有 {session_count} 个会话")
+        if not test_user or not demo_user:
+            logger.warning("找不到测试用户，跳过演示数据创建")
+            return
         
-        await engine.dispose()
-        return True
+        # 创建演示思维分析记录
+        demo_analyses = [
+            ThinkingAnalysis(
+                user_id=test_user.id,
+                input_text="人工智能的发展会对人类社会产生什么影响？",
+                analysis_type="comprehensive",
+                results={
+                    "visual_thinking": {
+                        "score": 0.72,
+                        "concepts": ["技术革命", "社会变革", "人机协作"],
+                        "associations": ["工业革命", "信息时代", "未来社会"]
+                    },
+                    "logical_thinking": {
+                        "score": 0.85,
+                        "reasoning_steps": [
+                            "分析AI技术现状",
+                            "评估影响领域",
+                            "预测发展趋势",
+                            "制定应对策略"
+                        ],
+                        "conclusions": ["需要政策引导", "教育体系改革", "道德伦理考量"]
+                    },
+                    "creative_thinking": {
+                        "score": 0.68,
+                        "innovations": ["人机融合工作模式", "AI辅助创作", "智能社会治理"],
+                        "possibilities": ["新兴职业", "生活方式转变", "认知能力增强"]
+                    }
+                },
+                thinking_summary={
+                    "dominant_thinking_style": "逻辑思维",
+                    "thinking_scores": {
+                        "逻辑思维": 0.85,
+                        "形象思维": 0.72,
+                        "创造思维": 0.68
+                    },
+                    "balance_index": 0.75,
+                    "insights": [
+                        "您在逻辑分析方面表现突出",
+                        "建议加强创造性思维训练",
+                        "可以尝试更多跨领域思考"
+                    ]
+                }
+            ),
+            ThinkingAnalysis(
+                user_id=demo_user.id,
+                input_text="如何设计一个理想的城市？",
+                analysis_type="comprehensive",
+                results={
+                    "visual_thinking": {
+                        "score": 0.88,
+                        "concepts": ["绿色空间", "智能交通", "和谐社区"],
+                        "associations": ["生态城市", "智慧城市", "宜居环境"]
+                    },
+                    "logical_thinking": {
+                        "score": 0.71,
+                        "reasoning_steps": [
+                            "确定城市功能定位",
+                            "规划空间布局",
+                            "设计交通系统",
+                            "配置公共服务"
+                        ],
+                        "conclusions": ["可持续发展", "以人为本", "技术与自然平衡"]
+                    },
+                    "creative_thinking": {
+                        "score": 0.92,
+                        "innovations": ["垂直花园", "地下空间利用", "社区共享中心"],
+                        "possibilities": ["漂浮城市", "地下城市", "天空城市"]
+                    }
+                },
+                thinking_summary={
+                    "dominant_thinking_style": "创造思维",
+                    "thinking_scores": {
+                        "创造思维": 0.92,
+                        "形象思维": 0.88,
+                        "逻辑思维": 0.71
+                    },
+                    "balance_index": 0.84,
+                    "insights": [
+                        "您具有出色的创造力和想象力",
+                        "建议加强逻辑推理能力",
+                        "可以将创意与实际结合"
+                    ]
+                }
+            )
+        ]
+        
+        for analysis in demo_analyses:
+            session.add(analysis)
+        
+        session.commit()
+        session.close()
+        
+        logger.info("✅ 演示思维分析数据创建成功")
         
     except Exception as e:
-        logger.error(f"❌ 数据库验证失败: {e}")
-        return False
+        logger.error(f"❌ 演示数据创建失败: {e}")
+        if 'session' in locals():
+            session.rollback()
+            session.close()
+        raise
 
 
-async def reset_database():
-    """重置数据库（删除所有表并重新创建）"""
+def create_demo_collaboration_sessions(engine):
+    """创建演示协作会话数据"""
     try:
-        logger.warning("⚠️ 开始重置数据库（将删除所有数据）...")
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
         
-        engine = create_async_engine(settings.DATABASE_URL)
+        # 获取用户
+        admin_user = session.query(User).filter(User.username == "admin").first()
+        test_user = session.query(User).filter(User.username == "testuser").first()
+        demo_user = session.query(User).filter(User.username == "demouser").first()
         
-        async with engine.begin() as conn:
-            # 删除所有表
-            await conn.run_sync(Base.metadata.drop_all)
-            logger.info("✅ 已删除所有表")
-            
-            # 重新创建表
-            await conn.run_sync(Base.metadata.create_all)
-            logger.info("✅ 已重新创建所有表")
+        if not all([admin_user, test_user, demo_user]):
+            logger.warning("找不到所有用户，跳过协作会话创建")
+            return
         
-        await engine.dispose()
-        return True
+        # 创建演示协作会话
+        demo_session = CollaborationSession(
+            creator_id=admin_user.id,
+            title="AI与未来社会讨论会",
+            description="探讨人工智能技术对未来社会的影响和机遇",
+            session_type="discussion",
+            is_active=True,
+            max_participants=10,
+            settings={
+                "allow_anonymous": False,
+                "enable_voice": True,
+                "enable_video": False,
+                "recording_enabled": False
+            }
+        )
+        
+        session.add(demo_session)
+        session.commit()
+        
+        # 创建用户会话
+        user_sessions = [
+            UserSession(
+                user_id=admin_user.id,
+                session_id=demo_session.id,
+                role="host",
+                is_active=True
+            ),
+            UserSession(
+                user_id=test_user.id,
+                session_id=demo_session.id,
+                role="participant",
+                is_active=True
+            ),
+            UserSession(
+                user_id=demo_user.id,
+                session_id=demo_session.id,
+                role="participant",
+                is_active=False
+            )
+        ]
+        
+        for user_session in user_sessions:
+            session.add(user_session)
+        
+        session.commit()
+        session.close()
+        
+        logger.info("✅ 演示协作会话数据创建成功")
         
     except Exception as e:
-        logger.error(f"❌ 重置数据库失败: {e}")
-        return False
+        logger.error(f"❌ 协作会话数据创建失败: {e}")
+        if 'session' in locals():
+            session.rollback()
+            session.close()
+        raise
 
 
-async def main():
+def main():
     """主函数"""
-    logger.info("🚀 智能思维数据库初始化工具")
-    logger.info(f"数据库URL: {settings.DATABASE_URL}")
+    logger.info("🚀 开始初始化数据库...")
     
     try:
-        # 检查命令行参数
-        if len(sys.argv) > 1:
-            command = sys.argv[1].lower()
-            
-            if command == "reset":
-                logger.warning("执行数据库重置...")
-                if await reset_database():
-                    logger.info("✅ 数据库重置完成")
-                return
-            elif command == "verify":
-                logger.info("执行数据库验证...")
-                if await verify_database():
-                    logger.info("✅ 数据库验证完成")
-                return
-            elif command == "help":
-                print("""
-使用方法:
-  python init_db.py          # 创建表和初始数据
-  python init_db.py reset    # 重置数据库
-  python init_db.py verify   # 验证数据库
-  python init_db.py help     # 显示帮助
-                """)
-                return
+        # 创建数据库表
+        engine = create_database()
         
-        # 默认操作：创建表和初始数据
-        engine = await create_tables()
-        await create_initial_data(engine)
-        await engine.dispose()
+        # 创建种子数据
+        create_seed_data(engine)
         
-        # 验证结果
-        if await verify_database():
-            logger.info("🎉 数据库初始化完成！")
-            logger.info("现在可以启动应用程序了：")
-            logger.info("  后端: cd backend && python main.py")
-            logger.info("  前端: cd frontend && npm start")
-        else:
-            logger.error("❌ 数据库初始化验证失败")
-            sys.exit(1)
+        # 创建演示数据
+        create_demo_thinking_analyses(engine)
+        create_demo_collaboration_sessions(engine)
         
-    except KeyboardInterrupt:
-        logger.info("🛑 用户中断操作")
-        sys.exit(0)
+        logger.info("🎉 数据库初始化完成！")
+        
     except Exception as e:
-        logger.error(f"💥 初始化过程中发生错误: {e}")
+        logger.error(f"💥 数据库初始化失败: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    # 配置日志
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | {message}",
-        level="INFO"
-    )
-    
-    # 运行主函数
-    asyncio.run(main()) 
+    main() 

@@ -1,77 +1,235 @@
-# 🧠 智能思维与灵境融合项目
+# 智能思维分析平台
 
-一个现代化的全栈AI应用，融合Python后端、React前端、AI模型、3D可视化于一体的智能思维分析与协作平台。
+一个基于AI驱动的三维思维分析与协作平台，运用前沿人工智能技术深度分析用户思维模式，提供个性化认知提升建议。
 
-## 🎯 项目概述
+## 🌟 核心特性
 
-本项目旨在构建AI时代的"思维科学"基础，通过灵境（元宇宙）平台实现人机智慧深度融合，支持**三层思维建模架构**：
+### 🧠 AI思维分析
+- **三层思维模型**：形象思维、逻辑思维、创造思维全面分析
+- **智能文本分析**：深度理解用户输入的思维内容
+- **图像思维识别**：支持图片上传进行视觉思维分析
+- **个性化建议**：基于分析结果提供专业的思维训练建议
 
-- **🎨 形象思维**: 视觉-语言理解，多模态感知
-- **🔍 逻辑思维**: 推理分析，符号处理
-- **💡 创造思维**: 生成创新，突破边界
+### 🔗 知识图谱
+- **可视化展示**：动态展示概念间的关联关系
+- **智能推荐**：基于用户思维特点推荐相关知识节点
+- **路径发现**：自动发现概念间的逻辑路径
+- **协作编辑**：支持多用户协同构建知识图谱
+
+### 👥 实时协作
+- **多用户协作**：支持实时多人思维空间共享
+- **WebSocket连接**：低延迟的实时数据同步
+- **角色管理**：主持人、协调者、参与者等多种角色
+- **会话管理**：创建、加入、管理协作会话
+
+### 🌐 3D思维空间
+- **三维可视化**：在立体空间中展示思维结构
+- **沉浸式体验**：支持VR/AR设备交互
+- **空间导航**：直观的3D空间导航和交互
+- **动态交互**：实时响应用户操作和思维变化
+
+### 🔐 用户认证系统
+- **JWT认证**：安全的用户身份验证
+- **自动刷新**：Token自动续期机制
+- **权限控制**：基于角色的访问控制
+- **密码安全**：bcrypt加密存储
 
 ## 🏗️ 技术架构
 
-### 后端技术栈
-- **🐍 Python 3.11** - 现代Python特性
-- **⚡ FastAPI** - 高性能异步Web框架
-- **🤖 PyTorch + Transformers** - AI模型推理
-- **🐘 PostgreSQL** - 主数据库
-- **🔴 Redis** - 缓存与会话管理
-- **🌐 Neo4j** - 知识图谱存储
-- **🔌 WebSocket** - 实时通信
-
 ### 前端技术栈
-- **⚛️ React 18** - 现代前端框架
-- **📘 TypeScript** - 类型安全
-- **🎨 Material-UI** - 优雅组件库
-- **🎪 Three.js** - 3D图形渲染
-- **🔄 Redux Toolkit** - 状态管理
-- **📡 React Query** - 数据获取
+- **React 18** - 现代化UI框架
+- **TypeScript** - 类型安全的JavaScript
+- **Material-UI 5** - Google Material Design组件库
+- **Three.js** - 3D图形渲染引擎
+- **React Router** - 单页应用路由管理
+- **Axios** - HTTP客户端库
+- **WebSocket** - 实时通信
 
-### AI模型集成
-- **🖼️ CLIP** - 视觉-语言理解
-- **🔤 RoBERTa** - 文本分析
-- **📝 GPT-2** - 创意生成
-- **🧮 Scikit-learn** - 机器学习
+### 后端技术栈
+- **FastAPI** - 高性能Python Web框架
+- **Python 3.9+** - 现代Python版本
+- **SQLAlchemy** - ORM数据库操作
+- **PostgreSQL/SQLite** - 关系型数据库
+- **Redis** - 缓存和会话存储
+- **Neo4j** - 图数据库（知识图谱）
+- **JWT** - 用户认证
+- **WebSocket** - 实时通信
 
-### 基础设施
-- **🐳 Docker** - 容器化部署
-- **🔧 Docker Compose** - 多服务编排
-- **🌐 Nginx** - 反向代理
-- **📊 Prometheus** - 监控指标
+### AI/ML技术
+- **自然语言处理**：基于Transformer的文本理解
+- **计算机视觉**：图像内容分析和理解
+- **机器学习**：思维模式识别和分类
+- **深度学习**：神经网络模型训练和推理
 
 ## 🚀 快速开始
 
 ### 环境要求
+- Node.js 16.0+
+- Python 3.9+
+- PostgreSQL 13+ (可选，默认使用SQLite)
+- Redis 6.0+ (可选)
 
-- **Python 3.11+**
-- **Node.js 18+**
-- **Docker & Docker Compose**
-- **Git**
+### 安装步骤
 
-### 1. 克隆项目
-
+1. **克隆仓库**
 ```bash
-git clone <repository-url>
-cd intelligent-thinking-metaverse
+git clone https://github.com/your-username/intelligent_thinking.git
+cd intelligent_thinking
 ```
 
-### 2. 环境配置
-
+2. **安装前端依赖**
 ```bash
-# 复制环境变量文件
-cp .env.example .env
-
-# 编辑环境变量 (根据需要修改数据库密码等)
-nano .env
+cd frontend
+npm install
 ```
 
-### 3. Docker 一键启动
+3. **安装后端依赖**
+```bash
+cd ../backend
+pip install -r requirements.txt
+```
 
+4. **环境配置**
+```bash
+# 复制环境变量模板
+cp env.example .env
+
+# 编辑环境变量文件
+vim .env
+```
+
+5. **数据库初始化**
+```bash
+cd backend
+python scripts/init_db.py
+```
+
+6. **启动服务**
+
+前端开发服务器：
+```bash
+cd frontend
+npm run dev
+```
+
+后端API服务器：
+```bash
+cd backend
+python main.py
+```
+
+访问 `http://localhost:3000` 体验平台功能。
+
+## 📁 项目结构
+
+```
+intelligent_thinking/
+├── frontend/                 # React前端应用
+│   ├── src/
+│   │   ├── components/       # 可复用组件
+│   │   ├── pages/           # 页面组件
+│   │   ├── services/        # API服务
+│   │   ├── contexts/        # React上下文
+│   │   ├── hooks/           # 自定义Hooks
+│   │   ├── types/           # TypeScript类型定义
+│   │   └── utils/           # 工具函数
+│   ├── public/              # 静态资源
+│   └── package.json         # 依赖配置
+├── backend/                 # FastAPI后端应用
+│   ├── app/
+│   │   ├── api/             # API路由
+│   │   ├── core/            # 核心配置
+│   │   ├── models/          # 数据模型
+│   │   ├── services/        # 业务逻辑
+│   │   └── ai_models/       # AI模型管理
+│   ├── scripts/             # 辅助脚本
+│   ├── tests/               # 测试文件
+│   └── requirements.txt     # Python依赖
+├── docs/                    # 项目文档
+├── docker-compose.yml       # Docker容器编排
+└── README.md               # 项目说明
+```
+
+## 🔧 配置说明
+
+### 环境变量配置
+
+```bash
+# 应用配置
+PROJECT_NAME=智能思维分析平台
+VERSION=1.0.0
+ENVIRONMENT=development
+
+# 数据库配置
+DATABASE_URL=sqlite:///./intelligent_thinking.db
+# DATABASE_URL=postgresql://user:password@localhost:5432/intelligent_thinking
+
+# Redis配置（可选）
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+
+# 安全配置
+SECRET_KEY=your-secret-key-change-this-in-production
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# AI模型配置
+OPENAI_API_KEY=your-openai-api-key
+MODEL_CACHE_TTL=3600
+```
+
+## 🎯 功能使用指南
+
+### 思维分析
+1. 登录或注册账户
+2. 选择"思维分析"功能
+3. 输入您想要分析的文本内容
+4. 选择分析类型（综合分析、形象思维、逻辑思维、创造思维）
+5. 点击"开始分析"查看结果
+6. 查看详细的思维分析报告和建议
+
+### 知识图谱
+1. 进入"知识图谱"页面
+2. 添加概念节点
+3. 建立概念间的关联关系
+4. 使用可视化界面探索知识网络
+5. 导出或分享知识图谱
+
+### 实时协作
+1. 创建或加入协作会话
+2. 邀请团队成员参与
+3. 在共享空间中进行思维碰撞
+4. 使用协作工具进行讨论和标注
+5. 保存协作成果
+
+### 3D思维空间
+1. 进入"3D思维空间"
+2. 在三维环境中组织思维结构
+3. 使用手势或VR设备进行交互
+4. 与他人在3D空间中协作
+5. 导出3D思维模型
+
+## 🧪 测试
+
+### 运行前端测试
+```bash
+cd frontend
+npm test
+```
+
+### 运行后端测试
+```bash
+cd backend
+python -m pytest tests/
+```
+
+## 📦 部署
+
+### Docker部署
 ```bash
 # 构建并启动所有服务
-docker-compose up --build -d
+docker-compose up -d
 
 # 查看服务状态
 docker-compose ps
@@ -80,266 +238,57 @@ docker-compose ps
 docker-compose logs -f
 ```
 
-### 4. 本地开发启动
-
-#### 后端启动
-
-```bash
-cd backend
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动开发服务器
-python main.py
-```
-
-#### 前端启动
-
-```bash
-cd frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm start
-```
-
-### 5. 访问应用
-
-- **前端应用**: http://localhost:3000
-- **后端API文档**: http://localhost:8000/docs
-- **Neo4j浏览器**: http://localhost:7474
-- **系统健康检查**: http://localhost:8000/health
-
-## 📂 项目结构
-
-```
-intelligent-thinking-metaverse/
-├── 📁 backend/                 # Python后端
-│   ├── 📁 app/
-│   │   ├── 📁 core/           # 核心配置
-│   │   ├── 📁 api/            # API路由
-│   │   ├── 📁 models/         # 数据模型
-│   │   ├── 📁 services/       # 业务逻辑
-│   │   └── 📁 ai_models/      # AI模型管理
-│   ├── 📄 main.py             # 应用入口
-│   ├── 📄 requirements.txt    # Python依赖
-│   └── 📄 Dockerfile          # 容器构建
-├── 📁 frontend/               # React前端
-│   ├── 📁 src/
-│   │   ├── 📁 components/     # React组件
-│   │   ├── 📁 pages/          # 页面组件
-│   │   ├── 📁 store/          # Redux状态
-│   │   ├── 📁 services/       # API服务
-│   │   └── 📁 types/          # TypeScript类型
-│   ├── 📄 package.json        # 依赖配置
-│   └── 📄 Dockerfile          # 容器构建
-├── 📄 docker-compose.yml      # 服务编排
-├── 📄 nginx.conf              # 反向代理配置
-└── 📄 README.md               # 项目文档
-```
-
-## 🔧 核心功能
-
-### 🧠 AI思维分析
-
-```python
-# 三层思维模型分析示例
-POST /api/v1/thinking/analyze
-{
-    "text": "用户输入的思考内容",
-    "analysis_type": "comprehensive"
-}
-
-# 响应示例
-{
-    "thinking_summary": {
-        "dominant_thinking_style": "逻辑思维",
-        "thinking_scores": {
-            "逻辑思维": 0.85,
-            "创造思维": 0.72,
-            "形象思维": 0.68
-        },
-        "balance_index": 0.78
-    }
-}
-```
-
-### 🌐 知识图谱操作
-
-```python
-# 创建知识节点
-POST /api/v1/knowledge/nodes
-{
-    "label": "Concept",
-    "properties": {
-        "name": "人工智能",
-        "description": "模拟人类智能的技术"
-    }
-}
-
-# 建立知识关系
-POST /api/v1/knowledge/relationships
-{
-    "from_node_id": "node_1",
-    "to_node_id": "node_2", 
-    "relationship_type": "RELATES_TO"
-}
-```
-
-### 🤝 实时协作
-
-```typescript
-// WebSocket连接示例
-const socket = io('ws://localhost:8000');
-
-socket.on('thinking_update', (data) => {
-    // 处理思维空间更新
-    console.log('协作更新:', data);
-});
-```
-
-## 🎨 核心特性
-
-### ✨ 主要亮点
-
-- **🎯 三层思维建模**: 形象→逻辑→创造思维全链条分析
-- **🌐 沉浸式3D空间**: WebXR支持的认知可视化
-- **🤖 多模态AI**: 文本+图像+语音的综合理解
-- **🔗 智能知识图谱**: Neo4j驱动的关联推理
-- **⚡ 实时协作**: WebSocket多用户同步
-- **📊 可视化分析**: 丰富的图表与指标
-- **🔐 企业级安全**: JWT认证+数据加密
-- **📱 响应式设计**: 支持桌面+移动端
-
-### 🛠️ 开发特性
-
-- **🔄 热重载**: 前后端开发实时更新
-- **📝 类型安全**: 全栈TypeScript支持
-- **🧪 单元测试**: Jest+Pytest完整覆盖
-- **📊 监控告警**: Prometheus+Grafana
-- **🐳 容器化**: Docker一键部署
-- **📚 API文档**: 自动生成的Swagger文档
-
-## 📊 性能指标
-
-- **⚡ API响应**: < 100ms (平均)
-- **🎮 3D渲染**: 60 FPS (目标)
-- **👥 并发用户**: 1000+ (设计目标)
-- **💾 数据处理**: 1M+ 节点支持
-- **🔄 实时延迟**: < 50ms
-
-## 🧪 测试
-
-```bash
-# 后端测试
-cd backend
-python -m pytest tests/ -v
-
-# 前端测试  
-cd frontend
-npm test
-
-# 集成测试
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-```
-
-## 🚀 部署
-
 ### 生产环境部署
-
-```bash
-# 1. 设置生产环境变量
-export ENVIRONMENT=production
-export DEBUG=false
-
-# 2. 构建生产镜像
-docker-compose -f docker-compose.prod.yml build
-
-# 3. 启动生产服务
-docker-compose -f docker-compose.prod.yml up -d
-
-# 4. 配置域名和SSL (可选)
-# 使用Let's Encrypt等工具配置HTTPS
-```
-
-### 扩展部署
-
-```bash
-# 水平扩展后端服务
-docker-compose up --scale backend=3
-
-# 使用Kubernetes (高级)
-kubectl apply -f k8s/
-```
-
-## 🔧 API文档
-
-启动服务后访问以下地址查看完整API文档：
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-### 主要API端点
-
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/api/v1/thinking/analyze` | POST | 思维分析 |
-| `/api/v1/thinking/generate-ideas` | POST | 创意生成 |
-| `/api/v1/knowledge/nodes` | GET/POST | 知识节点 |
-| `/api/v1/collaboration/rooms` | GET/POST | 协作房间 |
-| `/api/v1/system/health` | GET | 健康检查 |
+1. 设置环境变量为生产模式
+2. 配置反向代理(Nginx)
+3. 设置SSL证书
+4. 配置数据库和Redis
+5. 启动后端和前端服务
 
 ## 🤝 贡献指南
 
-1. **Fork** 本仓库
-2. 创建功能分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送分支: `git push origin feature/amazing-feature`
-5. 创建 **Pull Request**
+我们欢迎任何形式的贡献！
 
-### 代码规范
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
 
-```bash
-# Python代码格式化
-black backend/
-isort backend/
-
-# TypeScript代码格式化  
-cd frontend && npm run format
-
-# 代码检查
-cd frontend && npm run lint
-cd backend && flake8 app/
-```
+### 开发规范
+- 遵循代码格式化规范
+- 编写单元测试
+- 更新相关文档
+- 提供清晰的提交信息
 
 ## 📄 许可证
 
-本项目采用 [MIT许可证](LICENSE)
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 🙏 致谢
 
-感谢以下开源项目：
-
-- [FastAPI](https://fastapi.tiangolo.com/) - 现代Python Web框架
-- [React](https://reactjs.org/) - 用户界面库
-- [Material-UI](https://mui.com/) - React组件库
+- [React](https://reactjs.org/) - 前端框架
+- [FastAPI](https://fastapi.tiangolo.com/) - 后端框架
+- [Material-UI](https://mui.com/) - UI组件库
 - [Three.js](https://threejs.org/) - 3D图形库
-- [Neo4j](https://neo4j.com/) - 图数据库
-- [PyTorch](https://pytorch.org/) - 机器学习框架
+- 所有开源贡献者
 
-## 📞 联系方式
+## 📞 联系我们
 
-- **项目主页**: [GitHub Repository]
-- **问题报告**: [GitHub Issues]
-- **功能请求**: [GitHub Discussions]
+- 项目主页：https://github.com/your-username/intelligent_thinking
+- 问题反馈：https://github.com/your-username/intelligent_thinking/issues
+- 邮箱：your-email@example.com
+
+## 🗺️ 发展路线
+
+- [ ] 移动端适配
+- [ ] 更多AI模型集成
+- [ ] 实时语音分析
+- [ ] 团队管理功能
+- [ ] 数据分析报告
+- [ ] API开放平台
+- [ ] 第三方应用集成
 
 ---
 
-🌟 **如果这个项目对您有帮助，请考虑给它一个Star！** 🌟 
+⭐ 如果这个项目对您有帮助，请不要忘记给它一个星标！ 
