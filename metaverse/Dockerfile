@@ -22,7 +22,7 @@ RUN apk add --no-cache \
 COPY package*.json ./
 
 # 安装依赖
-RUN npm ci --only=production
+RUN npm install --only=production --no-audit --no-fund
 
 # 复制源代码
 COPY . .

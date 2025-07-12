@@ -18,7 +18,7 @@ RUN npm install -g @expo/cli @react-native-community/cli
 COPY package*.json ./
 
 # 安装依赖
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # 复制源代码
 COPY . .
