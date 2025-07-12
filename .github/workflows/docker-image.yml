@@ -132,17 +132,13 @@ jobs:
     strategy:
       matrix:
         service: [
-          'api-gateway',
-          'auth-service',
-          'thinking-analysis',
-          'collaboration',
+          'gateway',
           'blockchain',
           'graphql',
-          'advanced-ai',
+          'ai_advanced',
           'search',
-          'federated-learning',
-          'quantum-computing',
-          'networking'
+          'federated_learning',
+          'quantum'
         ]
     steps:
       - name: Checkout

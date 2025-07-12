@@ -98,7 +98,7 @@ build_images() {
     
     # 构建微服务镜像
     log_info "构建微服务镜像..."
-    services=("api-gateway" "auth-service" "thinking-analysis" "collaboration" "blockchain" "graphql" "advanced-ai" "search" "federated-learning" "quantum-computing" "networking")
+    services=("gateway" "blockchain" "graphql" "ai_advanced" "search" "federated_learning" "quantum")
     
     for service in "${services[@]}"; do
         log_info "构建 $service 镜像..."
@@ -106,12 +106,16 @@ build_images() {
     done
     
     # 构建移动端镜像
-    log_info "构建移动端镜像..."
-    docker build -t intelligent-thinking/mobile:latest ./mobile
+    if [ -d "./mobile" ]; then
+        log_info "构建移动端镜像..."
+        docker build -t intelligent-thinking/mobile:latest ./mobile
+    fi
     
     # 构建元宇宙镜像
-    log_info "构建元宇宙镜像..."
-    docker build -t intelligent-thinking/metaverse:latest ./metaverse
+    if [ -d "./metaverse" ]; then
+        log_info "构建元宇宙镜像..."
+        docker build -t intelligent-thinking/metaverse:latest ./metaverse
+    fi
     
     log_success "所有镜像构建完成"
 }
@@ -155,7 +159,7 @@ deploy_kubernetes() {
     # 等待部署完成
     log_info "等待 Kubernetes 部署完成..."
     kubectl rollout status deployment/frontend-deployment -n intelligent-thinking
-    kubectl rollout status deployment/api-gateway-deployment -n intelligent-thinking
+    kubectl rollout status deployment/gateway-deployment -n intelligent-thinking
     
     # 显示服务状态
     kubectl get pods -n intelligent-thinking
@@ -175,7 +179,7 @@ health_check() {
     else
         # Kubernetes 健康检查
         frontend_url="http://$(kubectl get service frontend-service -n intelligent-thinking -o jsonpath='{.status.loadBalancer.ingress[0].ip}'):80"
-        api_url="http://$(kubectl get service api-gateway-service -n intelligent-thinking -o jsonpath='{.status.loadBalancer.ingress[0].ip}'):8080/health"
+        api_url="http://$(kubectl get service gateway-service -n intelligent-thinking -o jsonpath='{.status.loadBalancer.ingress[0].ip}'):8080/health"
     fi
     
     # 检查前端
@@ -212,16 +216,12 @@ show_deployment_info() {
     echo ""
     echo "🔧 微服务端口："
     echo "  API Gateway: 8080"
-    echo "  Auth Service: 8081"
-    echo "  Thinking Analysis: 8082"
-    echo "  Collaboration: 8083"
     echo "  Blockchain: 8084"
     echo "  GraphQL: 8085"
-    echo "  Advanced AI: 8086"
+    echo "  AI Advanced: 8086"
     echo "  Search: 8087"
     echo "  Federated Learning: 8088"
     echo "  Quantum Computing: 8089"
-    echo "  Networking: 8090"
     echo ""
     echo "=================================================="
 }

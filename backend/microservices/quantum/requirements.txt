@@ -1,0 +1,11 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+redis==5.0.1
+sqlalchemy==2.0.23
+pydantic==2.5.0
+python-multipart==0.0.6
+qiskit==0.45.0
+qiskit-aer==0.13.0
+matplotlib==3.8.2
+numpy==1.24.3
+scipy==1.11.4

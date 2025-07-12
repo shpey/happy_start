@@ -62,22 +62,22 @@ services:
       - app-network
 
   # React 前端服务
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - REACT_APP_API_URL=http://localhost:8000
-  #     - REACT_APP_WS_URL=ws://localhost:8000
-  #   depends_on:
-  #     - backend
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   networks:
-  #     - app-network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - app-network
 
   # Nginx 反向代理
   nginx:

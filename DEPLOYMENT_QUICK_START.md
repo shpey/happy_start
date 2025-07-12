@@ -98,17 +98,13 @@ kubectl get pods -n intelligent-thinking
 | 服务 | 端口 | 描述 |
 |------|------|------|
 | Frontend | 3000 | React 前端应用 |
-| API Gateway | 8080 | 主要 API 网关 |
-| Auth Service | 8081 | 用户认证服务 |
-| Thinking Analysis | 8082 | 思维分析服务 |
-| Collaboration | 8083 | 协作服务 |
+| Gateway | 8080 | API 网关服务 |
 | Blockchain | 8084 | 区块链服务 |
 | GraphQL | 8085 | GraphQL 服务 |
-| Advanced AI | 8086 | 高级 AI 服务 |
+| AI Advanced | 8086 | 高级 AI 服务 |
 | Search | 8087 | 搜索服务 |
 | Federated Learning | 8088 | 联邦学习服务 |
 | Quantum Computing | 8089 | 量子计算服务 |
-| Networking | 8090 | 网络服务 |
 
 ## 🔧 管理命令
 
@@ -119,7 +115,7 @@ docker-compose logs -f
 
 # 查看特定服务日志
 docker-compose logs -f frontend
-docker-compose logs -f api-gateway
+docker-compose logs -f gateway
 ```
 
 ### 重启服务
@@ -168,10 +164,12 @@ curl http://localhost:3000
 curl http://localhost:8080/health
 
 # 检查所有微服务
-curl http://localhost:8081/health  # Auth Service
-curl http://localhost:8082/health  # Thinking Analysis
-curl http://localhost:8083/health  # Collaboration
-# ... 其他服务
+curl http://localhost:8084/health  # Blockchain
+curl http://localhost:8085/health  # GraphQL
+curl http://localhost:8086/health  # AI Advanced
+curl http://localhost:8087/health  # Search
+curl http://localhost:8088/health  # Federated Learning
+curl http://localhost:8089/health  # Quantum Computing
 ```
 
 ## 🛠️ 故障排除
