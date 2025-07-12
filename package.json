@@ -1,0 +1,42 @@
+{
+  "name": "intelligent-thinking-metaverse",
+  "version": "1.0.0",
+  "description": "智能思维与灵境融合项目 - AI驱动的3D思维空间与协作平台",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && pip install -r requirements.txt",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && python -m pytest",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "setup": "npm install && cd frontend && npm install && cd ../backend && pip install -r requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "AI",
+    "metaverse",
+    "3D",
+    "React",
+    "Python",
+    "FastAPI",
+    "thinking",
+    "cognitive-science",
+    "XR"
+  ],
+  "author": "Intelligent Thinking Team",
+  "license": "MIT"
+} 
