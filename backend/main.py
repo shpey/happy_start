@@ -87,15 +87,38 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 添加中间件
+# 导入安全中间件和监控
+from app.core.middleware import SecurityMiddleware, CORSSecurityMiddleware
+from app.core.monitoring import performance_monitor, monitor_request
+
+# 添加性能监控中间件
+@app.middleware("http")
+async def monitor_requests(request, call_next):
+    """监控请求性能"""
+    with monitor_request():
+        response = await call_next(request)
+    return response
+
+# 添加安全中间件（顺序很重要）
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    SecurityMiddleware,
+    rate_limit_requests=1000,
+    rate_limit_window=3600,
+    enable_ip_whitelist=False,
+    enable_sql_injection_protection=True,
+    enable_xss_protection=True
 )
 
+# 添加CORS安全中间件
+app.add_middleware(
+    CORSSecurityMiddleware,
+    allowed_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_credentials=True,
+    allowed_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowed_headers=["*"]
+)
+
+# 添加Gzip压缩中间件
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # 集成Prometheus监控

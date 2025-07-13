@@ -41,6 +41,7 @@ import {
   TrendingUp,
   CloudUpload,
   Assessment,
+  ShowChart,
   Close,
   ExpandLess,
   ExpandMore
@@ -118,13 +119,23 @@ const QuickAccessPanel: React.FC = () => {
       color: '#FF9800'
     },
     {
+      icon: <ShowChart />,
+      name: '高级可视化',
+      description: '高级图表和实时监控',
+      action: () => {
+        navigate('/visualization');
+        success('已跳转到高级可视化页面');
+      },
+      color: '#9C27B0'
+    },
+    {
       icon: <History />,
       name: '历史记录',
       description: '查看最近活动',
       action: () => {
         setPanelOpen(!panelOpen);
       },
-      color: '#9C27B0'
+      color: '#795548'
     }
   ];
 

@@ -10,7 +10,10 @@ from .endpoints import (
     collaboration,
     user_management,
     file_upload,
-    system_status
+    system_status,
+    monitoring,
+    advanced_ai,
+    analytics
 )
 
 api_router = APIRouter()
@@ -55,4 +58,25 @@ api_router.include_router(
     system_status.router,
     prefix="/system",
     tags=["系统状态"]
+)
+
+# 监控相关路由
+api_router.include_router(
+    monitoring.router,
+    prefix="/monitoring",
+    tags=["系统监控"]
+)
+
+# 高级AI相关路由
+api_router.include_router(
+    advanced_ai.router,
+    prefix="/ai",
+    tags=["高级AI"]
+)
+
+# 数据分析相关路由
+api_router.include_router(
+    analytics.router,
+    prefix="/analytics",
+    tags=["数据分析"]
 ) 

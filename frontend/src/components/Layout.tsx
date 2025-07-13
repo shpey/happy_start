@@ -43,6 +43,7 @@ import {
   LightMode
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import ResponsiveNavigation from './common/ResponsiveNavigation';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -260,97 +261,115 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar
-        position="sticky"
-        sx={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        <Toolbar>
-          {/* 移动端菜单按钮 */}
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-
-          {/* Logo和标题 */}
-          <Psychology sx={{ mr: 2 }} />
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
-            onClick={() => navigate('/')}
-          >
-            智能思维分析平台
-          </Typography>
-
-          {/* 桌面端导航 */}
-          {!isMobile && (
-            <Box sx={{ display: 'flex', gap: 1, mr: 2 }}>
-              {navigationItems.map((item) => (
-                <Button
-                  key={item.path}
-                  color="inherit"
-                  startIcon={item.icon}
-                  onClick={() => handleNavigation(item.path)}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    ...(location.pathname === item.path && {
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      fontWeight: 'bold'
-                    })
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </Box>
-          )}
-
-          {/* 用户区域 */}
-          {renderUserSection()}
-        </Toolbar>
-      </AppBar>
-
-      {/* 移动端抽屉 */}
-      <Drawer
-        variant="temporary"
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* 响应式导航组件 */}
+      <ResponsiveNavigation
         open={drawerOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true,
-        }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
-        }}
-      >
-        {drawer}
-      </Drawer>
+        onToggle={handleDrawerToggle}
+        variant={isMobile ? 'temporary' : 'persistent'}
+      />
 
       {/* 主要内容区域 */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
           bgcolor: 'background.default',
-          minHeight: 'calc(100vh - 64px)'
+          minHeight: '100vh',
+          marginLeft: !isMobile && drawerOpen ? 0 : 0,
+          transition: theme.transitions.create(['margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
-        {children}
+        {/* 顶部应用栏 */}
+        <AppBar
+          position="sticky"
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+            zIndex: theme.zIndex.drawer - 1,
+          }}
+        >
+          <Toolbar>
+            {/* 移动端菜单按钮 */}
+            <IconButton
+              color="inherit"
+              aria-label="toggle drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ 
+                mr: 2,
+                ...(isMobile ? {} : { display: 'none' })
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+
+            {/* Logo 和标题 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+              <Psychology sx={{ mr: 1 }} />
+              <Typography
+                variant="h6"
+                component="div"
+                sx={{ 
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                智能思维分析
+              </Typography>
+            </Box>
+
+            {/* 搜索框 - 桌面端 */}
+            {!isMobile && (
+              <Box sx={{ flexGrow: 1, mx: 3, maxWidth: 400 }}>
+                {/* 这里可以添加搜索功能 */}
+              </Box>
+            )}
+
+            {/* 右侧工具栏 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* 通知按钮 */}
+              <Tooltip title="通知">
+                <IconButton color="inherit">
+                  <Badge badgeContent={3} color="error">
+                    <Notifications />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+
+              {/* 主题切换 */}
+              <Tooltip title="切换主题">
+                <IconButton color="inherit" onClick={toggleTheme}>
+                  <LightMode />
+                </IconButton>
+              </Tooltip>
+
+              {/* 用户区域 */}
+              {renderUserSection()}
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {/* 页面内容 */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            p: { xs: 1, sm: 2, md: 3 },
+            overflow: 'auto',
+            mb: isMobile ? 8 : 0, // 为移动端底部导航栏留空间
+          }}
+        >
+          {children}
+        </Box>
       </Box>
 
-      {/* 通知 */}
+      {/* 通知系统 */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}

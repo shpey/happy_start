@@ -67,6 +67,32 @@ class Settings(BaseSettings):
     AI_MODEL_DIR: str = "models"
     ENABLE_AI_MODELS: bool = True
     
+    # 高级AI模型API配置
+    OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
+    
+    # AI模型参数
+    AI_MODEL_TIMEOUT: int = 30  # 请求超时时间（秒）
+    AI_DEFAULT_MODEL: str = "gpt-4"
+    AI_MAX_TOKENS: int = 4000
+    AI_TEMPERATURE: float = 0.7
+    AI_TOP_P: float = 1.0
+    AI_FREQUENCY_PENALTY: float = 0.0
+    AI_PRESENCE_PENALTY: float = 0.0
+    
+    # AI功能开关
+    ENABLE_GPT4: bool = False
+    ENABLE_CLAUDE: bool = False
+    ENABLE_GEMINI: bool = False
+    ENABLE_LOCAL_MODELS: bool = True
+    
+    # 多模态AI配置
+    ENABLE_IMAGE_ANALYSIS: bool = True
+    ENABLE_AUDIO_ANALYSIS: bool = True
+    MAX_IMAGE_SIZE: int = 5 * 1024 * 1024  # 5MB
+    MAX_AUDIO_SIZE: int = 25 * 1024 * 1024  # 25MB
+    
     # 缓存配置
     CACHE_TTL: int = 3600  # 1小时
     
@@ -76,6 +102,9 @@ class Settings(BaseSettings):
     
     # 监控配置
     ENABLE_METRICS: bool = True
+    MONITORING_INTERVAL: int = 60  # 监控数据收集间隔（秒）
+    METRICS_RETENTION_HOURS: int = 24  # 指标保留时间（小时）
+    ALERT_WEBHOOK_URL: str = ""  # 告警Webhook URL
     
     # 邮件配置
     SMTP_HOST: str = "smtp.gmail.com"

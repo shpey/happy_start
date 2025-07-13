@@ -29,10 +29,20 @@ import chromadb
 from chromadb.utils import embedding_functions
 import redis
 import asyncpg
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
+import sys
+import os
+
+# 添加上级目录到路径以导入共享模块
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from shared_auth import (
+    get_ai_service_user, require_ai_permission, Permission, 
+    get_microservice_auth, UserRole
+)
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -224,13 +234,32 @@ class AdvancedAIService:
             }
         
         @self.app.post("/analyze/text")
-        async def analyze_text(request: TextAnalysisRequest):
+        @require_ai_permission(Permission.AI_QUERY)
+        async def analyze_text(
+            request: TextAnalysisRequest,
+            current_user: dict = Depends(get_ai_service_user)
+        ):
             """文本分析"""
             start_time = time.time()
             
             try:
+                auth = get_microservice_auth("ai-service")
+                auth.log_auth_event(
+                    user_id=current_user.get("user_id"),
+                    action="text_analysis_started",
+                    success=True,
+                    details=f"model:{request.model}, type:{request.analysis_type}"
+                )
+                
                 result = await self.perform_text_analysis(request)
                 processing_time = time.time() - start_time
+                
+                auth.log_auth_event(
+                    user_id=current_user.get("user_id"),
+                    action="text_analysis_completed",
+                    success=True,
+                    details=f"processing_time:{processing_time:.2f}s"
+                )
                 
                 return AIResponse(
                     success=True,
@@ -242,6 +271,13 @@ class AdvancedAIService:
                 )
                 
             except Exception as e:
+                auth = get_microservice_auth("ai-service")
+                auth.log_auth_event(
+                    user_id=current_user.get("user_id"),
+                    action="text_analysis_failed",
+                    success=False,
+                    details=str(e)
+                )
                 logger.error(f"文本分析失败: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
         

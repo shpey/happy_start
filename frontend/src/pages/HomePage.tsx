@@ -48,6 +48,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { thinkingService } from '../services/thinkingService';
+import EnhancedWelcome from '../components/common/EnhancedWelcome';
+import EnhancedLoading from '../components/common/EnhancedLoading';
 
 interface RecentAnalysis {
   id: number;
@@ -555,6 +557,31 @@ const HomePage: React.FC = () => {
     </Paper>
   );
 
+  // 如果正在加载，显示增强加载界面
+  if (loading) {
+    return (
+      <EnhancedLoading
+        type="custom"
+        size="large"
+        message="正在加载智能思维平台..."
+        fullScreen={false}
+        variant="primary"
+      />
+    );
+  }
+
+  // 如果是第一次访问或者需要展示增强欢迎界面
+  if (!user || (userStats && userStats.total_analyses === 0)) {
+    return (
+      <EnhancedWelcome
+        user={user}
+        onNavigate={navigate}
+        stats={userStats}
+      />
+    );
+  }
+
+  // 有经验用户的标准界面
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       {renderWelcomeSection()}

@@ -27,27 +27,12 @@ import { store, persistor } from './src/store';
 import { theme } from './src/theme';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
-import { NotificationProvider } from './src/context/NotificationContext';
 import { SecurityProvider } from './src/context/SecurityContext';
+
+// 简化的占位符Provider
 import {
-  NetworkProvider,
-  PermissionsProvider,
-  BiometricsProvider,
-  VoiceProvider,
-  CameraProvider,
-  LocationProvider,
-  BluetoothProvider,
-  SensorProvider,
-  AudioProvider,
-  VideoProvider,
-  ARProvider,
-  VRProvider,
-  AIProvider,
-  BlockchainProvider,
-  QuantumProvider,
-  FederatedLearningProvider,
+  NotificationProvider,
   AnalyticsProvider,
-  PerformanceProvider,
 } from './src/context/PlaceholderContexts';
 
 import {
@@ -292,73 +277,39 @@ const App: React.FC = () => {
               <PaperProvider theme={theme}>
                 <AuthProvider>
                   <ThemeProvider>
-                    <NetworkProvider>
-                      <PermissionsProvider>
-                        <BiometricsProvider>
-                          <VoiceProvider>
-                            <CameraProvider>
-                              <LocationProvider>
-                                <NotificationProvider>
-                                  <BluetoothProvider>
-                                    <SensorProvider>
-                                      <AudioProvider>
-                                        <VideoProvider>
-                                          <ARProvider>
-                                            <VRProvider>
-                                              <AIProvider>
-                                                <BlockchainProvider>
-                                                  <QuantumProvider>
-                                                    <FederatedLearningProvider>
-                                                      <AnalyticsProvider>
-                                                        <PerformanceProvider>
-                                                          <SecurityProvider>
-                                                            <NavigationContainer>
-                                                              <StatusBar
-                                                                barStyle={
-                                                                  appState.theme === 'dark'
-                                                                    ? 'light-content'
-                                                                    : 'dark-content'
-                                                                }
-                                                                backgroundColor={
-                                                                  appState.theme === 'dark'
-                                                                    ? '#000000'
-                                                                    : '#ffffff'
-                                                                }
-                                                              />
-                                                              <MainNavigator />
-                                                              <Toast />
-                                                              {appState.showUpdate && (
-                                                                <UpdateModal
-                                                                  visible={appState.showUpdate}
-                                                                  onClose={() =>
-                                                                    setAppState(prev => ({
-                                                                      ...prev,
-                                                                      showUpdate: false
-                                                                    }))
-                                                                  }
-                                                                />
-                                                              )}
-                                                            </NavigationContainer>
-                                                          </SecurityProvider>
-                                                        </PerformanceProvider>
-                                                      </AnalyticsProvider>
-                                                    </FederatedLearningProvider>
-                                                  </QuantumProvider>
-                                                </BlockchainProvider>
-                                              </AIProvider>
-                                            </VRProvider>
-                                          </ARProvider>
-                                        </VideoProvider>
-                                      </AudioProvider>
-                                    </SensorProvider>
-                                  </BluetoothProvider>
-                                </NotificationProvider>
-                              </LocationProvider>
-                            </CameraProvider>
-                          </VoiceProvider>
-                        </BiometricsProvider>
-                      </PermissionsProvider>
-                    </NetworkProvider>
+                    <SecurityProvider>
+                      <NotificationProvider>
+                        <AnalyticsProvider>
+                          <NavigationContainer>
+                            <StatusBar
+                              barStyle={
+                                appState.theme === 'dark'
+                                  ? 'light-content'
+                                  : 'dark-content'
+                              }
+                              backgroundColor={
+                                appState.theme === 'dark'
+                                  ? '#000000'
+                                  : '#ffffff'
+                              }
+                            />
+                            <MainNavigator />
+                            <Toast />
+                            {appState.showUpdate && (
+                              <UpdateModal
+                                visible={appState.showUpdate}
+                                onClose={() =>
+                                  setAppState(prev => ({
+                                    ...prev,
+                                    showUpdate: false
+                                  }))
+                                }
+                              />
+                            )}
+                          </NavigationContainer>
+                        </AnalyticsProvider>
+                      </NotificationProvider>
+                    </SecurityProvider>
                   </ThemeProvider>
                 </AuthProvider>
               </PaperProvider>

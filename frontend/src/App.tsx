@@ -9,8 +9,10 @@ import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import CollaborationPage from './pages/CollaborationPage';
 import ThreeDSpacePage from './pages/ThreeDSpacePage';
 import DashboardPage from './pages/DashboardPage';
+import AdvancedVisualizationPage from './pages/AdvancedVisualizationPage';
 import QuickAccessPanel from './components/common/QuickAccessPanel';
 import UserGuide from './components/common/UserGuide';
+import NotificationDisplay from './components/common/NotificationDisplay';
 
 function App() {
   return (
@@ -29,6 +31,7 @@ function App() {
             <Route path="/collaboration" element={<CollaborationPage />} />
             <Route path="/3d-space" element={<ThreeDSpacePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/visualization" element={<AdvancedVisualizationPage />} />
             <Route path="/models" element={<DashboardPage />} />
             <Route path="/sync" element={<DashboardPage />} />
             <Route path="/settings" element={<DashboardPage />} />
@@ -36,6 +39,9 @@ function App() {
           
           {/* 快速访问面板 */}
           <QuickAccessPanel />
+          
+          {/* 通知显示系统 */}
+          <NotificationDisplay />
           
           {/* 用户引导 */}
           <UserGuide />

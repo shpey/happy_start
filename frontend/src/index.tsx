@@ -5,7 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { Provider } from 'react-redux';
 import { AuthProvider } from './contexts/AuthContext';
-import { NotificationProvider } from './components/common/NotificationProvider';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { store } from './store';
 import { theme } from './theme';
 import App from './App';
